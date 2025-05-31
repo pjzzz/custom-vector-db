@@ -4,6 +4,9 @@ import re
 from collections import defaultdict
 import threading
 from copy import deepcopy
+import logging
+
+logger = logging.getLogger(__name__)
 
 class InvertedIndex:
     """
@@ -137,40 +140,88 @@ class InvertedIndex:
     
     def remove_chunk(self, chunk_id: str) -> bool:
         """
-        Remove a chunk from the index with thread safety.
-        Returns True if the chunk was found and removed, False otherwise.
+        Remove a chunk from the index.
+        Thread-safe implementation.
+        
+        Args:
+            chunk_id: ID of the chunk to remove
+            
+        Returns:
+            True if the chunk was removed, False otherwise
         """
-        # Check if the chunk exists and get its text for processing
-        chunk_text = None
+        # First check if the chunk exists
         with self._chunk_lock:
             if chunk_id not in self.chunk_map:
                 return False
-            
-            # Get the text before removing from map
-            chunk_text = self.chunk_map[chunk_id].text
-            doc_id = self.chunk_map[chunk_id].document_id
-            # Remove from chunk map
+            # Remove the chunk from the chunk map
             del self.chunk_map[chunk_id]
         
-        # Process the tokens to remove from index
-        tokens = self.tokenize(chunk_text)
-        
-        # Remove chunk references from index with lock protection
+        # Then remove all references to the chunk from the index
         with self._index_lock:
-            for token in tokens:
-                if token in self.index and doc_id in self.index[token]:
+            # For each term in the index
+            for term in list(self.index.keys()):
+                # For each document in the term's posting list
+                for doc_id in list(self.index[term].keys()):
                     # Filter out positions for this chunk
-                    self.index[token][doc_id] = [
-                        pos for pos in self.index[token][doc_id] 
+                    self.index[term][doc_id] = [
+                        pos for pos in self.index[term][doc_id] 
                         if pos[0] != chunk_id
                     ]
                     
-                    # If no more positions for this document, remove the document entry
-                    if not self.index[token][doc_id]:
-                        del self.index[token][doc_id]
-                    
-                    # If no more documents for this token, remove the token entry
-                    if not self.index[token]:
-                        del self.index[token]
+                    # If no positions left for this document, remove the document
+                    if not self.index[term][doc_id]:
+                        del self.index[term][doc_id]
+                
+                # If no documents left for this term, remove the term
+                if not self.index[term]:
+                    del self.index[term]
         
         return True
+        
+    def get_serializable_data(self):
+        """Get serializable data for persistence.
+        Thread-safe implementation.
+        
+        Returns:
+            Dict containing serializable data
+        """
+        with self._index_lock, self._chunk_lock:
+            # Convert defaultdict to regular dict for serialization
+            index_dict = {}
+            for term, docs in self.index.items():
+                index_dict[term] = {}
+                for doc_id, positions in docs.items():
+                    index_dict[term][doc_id] = positions
+            
+            # Convert chunk objects to dictionaries
+            chunk_dict = {}
+            for chunk_id, chunk in self.chunk_map.items():
+                chunk_dict[chunk_id] = chunk.model_dump()
+            
+            return {
+                "index": index_dict,
+                "chunk_map": chunk_dict
+            }
+    
+    def load_serializable_data(self, data):
+        """Load serializable data from persistence.
+        Thread-safe implementation.
+        
+        Args:
+            data: Dict containing serializable data
+        """
+        from models import Chunk  # Import here to avoid circular imports
+        
+        with self._index_lock, self._chunk_lock:
+            # Convert dict back to defaultdict
+            self.index = defaultdict(dict)
+            for term, docs in data["index"].items():
+                for doc_id, positions in docs.items():
+                    self.index[term][doc_id] = positions
+            
+            # Convert dictionaries back to Chunk objects
+            self.chunk_map = {}
+            for chunk_id, chunk_data in data["chunk_map"].items():
+                self.chunk_map[chunk_id] = Chunk(**chunk_data)
+            
+            logger.info(f"Loaded inverted index with {len(self.index)} terms and {len(self.chunk_map)} chunks")

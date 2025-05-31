@@ -2,6 +2,9 @@ from typing import Dict, List, Set, Tuple
 from models.chunk import Chunk
 import bisect
 import threading
+import logging
+
+logger = logging.getLogger(__name__)
 
 class SuffixArrayIndex:
     """
@@ -73,20 +76,61 @@ class SuffixArrayIndex:
         
     def remove_chunk(self, chunk_id: str) -> bool:
         """
-        Remove a chunk from the index with thread safety.
-        Returns True if the chunk was found and removed, False otherwise.
+        Remove a chunk from the index.
+        Thread-safe implementation.
+        
+        Args:
+            chunk_id: ID of the chunk to remove
+            
+        Returns:
+            True if the chunk was removed, False otherwise
         """
-        # Check if the chunk exists
+        # First remove the chunk from the chunk map
         with self._chunk_lock:
             if chunk_id not in self.chunk_map:
                 return False
-            # Remove from chunk map
             del self.chunk_map[chunk_id]
         
-        # Remove all suffixes for this chunk from the suffix array
+        # Then remove all suffixes for this chunk from the suffix array
         with self._suffix_lock:
-            # Create a new suffix array without the chunk's entries
-            self.suffix_array = [entry for entry in self.suffix_array 
-                               if entry[3] != chunk_id]
+            # Filter out suffixes for this chunk
+            self.suffix_array = [s for s in self.suffix_array if s[3] != chunk_id]
         
         return True
+        
+    def get_serializable_data(self):
+        """Get serializable data for persistence.
+        Thread-safe implementation.
+        
+        Returns:
+            Dict containing serializable data
+        """
+        with self._suffix_lock, self._chunk_lock:
+            # Convert chunk objects to dictionaries
+            chunk_dict = {}
+            for chunk_id, chunk in self.chunk_map.items():
+                chunk_dict[chunk_id] = chunk.model_dump()
+            
+            return {
+                "suffix_array": self.suffix_array,
+                "chunk_map": chunk_dict
+            }
+    
+    def load_serializable_data(self, data):
+        """Load serializable data from persistence.
+        Thread-safe implementation.
+        
+        Args:
+            data: Dict containing serializable data
+        """
+        from models import Chunk  # Import here to avoid circular imports
+        
+        with self._suffix_lock, self._chunk_lock:
+            self.suffix_array = data["suffix_array"]
+            
+            # Convert dictionaries back to Chunk objects
+            self.chunk_map = {}
+            for chunk_id, chunk_data in data["chunk_map"].items():
+                self.chunk_map[chunk_id] = Chunk(**chunk_data)
+            
+            logger.info(f"Loaded suffix array index with {len(self.suffix_array)} suffixes and {len(self.chunk_map)} chunks")

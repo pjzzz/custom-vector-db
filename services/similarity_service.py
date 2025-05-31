@@ -67,56 +67,103 @@ class SimilarityService:
         
         return {"status": "success", "id": id}
     
-    def search(self, query_vector: List[float], top_k: int = 10, 
-               filter_dict: Optional[Dict] = None) -> List[Dict]:
+    def search(self, query_vector: np.ndarray, top_k: int = 5, filter_metadata: Optional[Dict] = None) -> List[Dict]:
         """
-        Search for the most similar vectors to the query vector.
+        Search for similar vectors.
+        Thread-safe implementation with snapshot-based search.
+        
+        Args:
+            query_vector: Query vector
+            top_k: Number of results to return
+            filter_metadata: Optional metadata filter
+            
+        Returns:
+            List of results with id, score, and metadata
+        """
+        # Convert query vector to numpy array if it's a list
+        if isinstance(query_vector, list):
+            query_vector = np.array(query_vector, dtype=np.float32)
+        
+        # Create a snapshot of vectors and metadata to avoid holding the lock during computation
+        with self._vector_lock:
+            # Create copies to avoid race conditions
+            vectors_snapshot = self.vectors.copy()
+            metadata_snapshot = self.metadata.copy()
+        
+        # Filter by metadata if needed
+        if filter_metadata:
+            filtered_ids = []
+            for id, meta in metadata_snapshot.items():
+                if all(meta.get(k) == v for k, v in filter_metadata.items()):
+                    filtered_ids.append(id)
+            
+            # Only keep vectors that match the filter
+            vectors_snapshot = {id: vectors_snapshot[id] for id in filtered_ids if id in vectors_snapshot}
+        
+        # Calculate distances
+        results = []
+        for id, vector in vectors_snapshot.items():
+            # Calculate distance based on the selected metric
+            if self.distance_metric == self.COSINE:
+                # Cosine similarity (1 - cosine distance)
+                similarity = 1 - np.dot(query_vector, vector) / (np.linalg.norm(query_vector) * np.linalg.norm(vector))
+            elif self.distance_metric == self.EUCLIDEAN:
+                # Convert Euclidean distance to similarity score (1 / (1 + distance))
+                similarity = 1 / (1 + np.linalg.norm(query_vector - vector))
+            elif self.distance_metric == self.DOT:
+                # Dot product
+                similarity = np.dot(query_vector, vector)
+            else:
+                raise ValueError(f"Unknown distance metric: {self.distance_metric}")
+            
+            results.append({
+                "id": id,
+                "score": float(similarity),  # Convert numpy types to native Python types
+                "metadata": metadata_snapshot.get(id, {})
+            })
+        
+        # Sort by score (descending) and take top_k
+        results.sort(key=lambda x: x["score"], reverse=True)
+        return results[:top_k]
+        
+    def get_all_vectors(self):
+        """
+        Get all vectors and metadata for persistence.
+        Thread-safe implementation.
+        
+        Returns:
+            Dict containing vectors and metadata
+        """
+        with self._vector_lock:
+            # Convert numpy arrays to lists for JSON serialization
+            vectors_data = {}
+            for id, vector in self.vectors.items():
+                vectors_data[id] = vector.tolist()
+                
+            return {
+                "vectors": vectors_data,
+                "metadata": self.metadata,
+                "distance_metric": self.distance_metric
+            }
+    
+    def load_vectors(self, vectors_data):
+        """
+        Load vectors and metadata from persistence.
         Thread-safe implementation.
         
         Args:
-            query_vector: The query embedding vector
-            top_k: Number of results to return
-            filter_dict: Optional metadata filter criteria
-            
-        Returns:
-            List of dicts with id, score, and metadata
+            vectors_data: Dict containing vectors and metadata
         """
-        # Convert to numpy array
-        query_array = np.array(query_vector, dtype=np.float32)
-        
-        # Normalize the query vector if using cosine similarity
-        if self.distance_metric == self.COSINE:
-            query_array = self._normalize_vector(query_array)
-        
-        # Create a snapshot of vectors and metadata with lock protection
         with self._vector_lock:
-            # Make a shallow copy of the dictionaries
-            vector_ids = list(self.vectors.keys())
-            vectors_snapshot = {id: self.vectors[id] for id in vector_ids}
-            metadata_snapshot = {id: self.metadata[id] for id in vector_ids}
-        
-        # Calculate similarities
-        similarities = []
-        
-        for id, vector in vectors_snapshot.items():
-            # Apply metadata filter if provided
-            if filter_dict and not self._matches_filter(metadata_snapshot[id], filter_dict):
-                continue
+            # Convert lists back to numpy arrays
+            self.vectors = {}
+            for id, vector_list in vectors_data["vectors"].items():
+                self.vectors[id] = np.array(vector_list, dtype=np.float32)
                 
-            # Calculate similarity score based on the distance metric
-            score = self._calculate_similarity(query_array, vector)
-            similarities.append((id, score, metadata_snapshot[id]))
-        
-        # Sort by similarity score (higher is better)
-        similarities.sort(key=lambda x: x[1], reverse=True)
-        
-        # Return top k results
-        results = [
-            {"id": id, "score": float(score), "metadata": metadata}
-            for id, score, metadata in similarities[:top_k]
-        ]
-        
-        return results
+            self.metadata = vectors_data["metadata"]
+            self.distance_metric = vectors_data["distance_metric"]
+            
+            logger.info(f"Loaded {len(self.vectors)} vectors with {self.distance_metric} distance metric")
     
     def delete(self, ids: List[str]) -> Dict:
         """

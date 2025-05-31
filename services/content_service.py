@@ -17,18 +17,25 @@ class ContentService:
     """Service class for managing libraries, documents, and chunks."""
 
     def __init__(self, vector_service: Optional[VectorService] = None, 
-                 indexer_type: str = 'inverted',
-                 embedding_dimension: int = 1536) -> None:
+             indexer_type: str = 'inverted',
+             embedding_dimension: int = 1536,
+             data_dir: str = "./data",
+             enable_persistence: bool = True,
+             snapshot_interval: int = 300) -> None:
         """Initialize with vector service.
         
         Args:
             vector_service: Vector service instance (optional)
             indexer_type: Type of indexer to use ('inverted', 'trie', or 'suffix')
             embedding_dimension: Dimension of embedding vectors (default: 1536)
+            data_dir: Directory to store persistence files
+            enable_persistence: Whether to enable persistence to disk
+            snapshot_interval: Seconds between automatic snapshots
         """
         self.vector_service = vector_service
         self.content_store = {}
         self.embedding_dimension = embedding_dimension
+        self.indexer_type = indexer_type
         
         # Initialize embedding service
         self.embedding_service = EmbeddingService(vector_size=embedding_dimension, min_word_freq=2)
@@ -41,7 +48,7 @@ class ContentService:
         # Initialize the selected indexer
         if indexer_type not in INDEXERS:
             raise ValueError(f"Invalid indexer type: {indexer_type}. Must be one of: {list(INDEXERS.keys())}")
-        self.indexer = INDEXERS[indexer_type]()  # In-memory storage for demonstration
+        self.indexer = INDEXERS[indexer_type]()  # In-memory storage with persistence
         
         # Initialize locks for concurrency control
         self._library_lock = asyncio.Lock()
@@ -49,6 +56,20 @@ class ContentService:
         self._chunk_lock = asyncio.Lock()
         self._indexer_lock = asyncio.Lock()
         self._vector_lock = asyncio.Lock()  # Lock for vector operations
+        
+        # Initialize persistence service if enabled
+        self.enable_persistence = enable_persistence
+        if enable_persistence:
+            from services.persistence_service import PersistenceService
+            self.persistence_service = PersistenceService(
+                data_dir=data_dir,
+                snapshot_interval=snapshot_interval,
+                enable_auto_persist=True
+            )
+            logger.info(f"Initialized persistence service with data directory: {data_dir}")
+        else:
+            self.persistence_service = None
+            logger.warning("Persistence is disabled - data will not be saved to disk")
         
     @asynccontextmanager
     async def _library_write_lock(self):
@@ -80,6 +101,17 @@ class ContentService:
         async with self._vector_lock:
             yield
 
+    async def _persist_changes(self):
+        """Persist changes to disk if persistence is enabled."""
+        if not self.enable_persistence or not self.persistence_service:
+            return
+        
+        try:
+            # Create a snapshot in the background
+            await self.persistence_service.create_snapshot(self)
+        except Exception as e:
+            logger.error(f"Error persisting changes: {str(e)}")
+
     async def create_library(self, library: Library) -> Dict:
         """
         Create a new library.
@@ -106,6 +138,9 @@ class ContentService:
                 library_data = library.model_dump()
             
             # No external vector index creation needed - using custom implementation
+            
+            # Persist changes if enabled
+            await self._persist_changes()
             
             return {
                 "message": "Library created successfully",
@@ -170,6 +205,9 @@ class ContentService:
                 # Create a copy to avoid race conditions
                 library_data = library.model_dump()
             
+            # Persist changes if enabled
+            await self._persist_changes()
+            
             return {
                 "message": "Library updated successfully",
                 "library": library_data
@@ -192,19 +230,28 @@ class ContentService:
             ValueError: If library not found
         """
         try:
+            # Get the library
             async with self._library_write_lock():
                 libraries = self.content_store.get('libraries', {})
                 if library_id not in libraries:
                     raise ValueError(f"Library {library_id} not found")
-                    
+                
+                # Get all documents in this library
+                documents = self.content_store.get('documents', {})
+                library_documents = [doc_id for doc_id, doc in documents.items() if doc.library_id == library_id]
+                
                 # Delete the library
                 del libraries[library_id]
             
-            # No external vector index deletion needed - using custom implementation
+            # Delete all documents in this library
+            for doc_id in library_documents:
+                await self.delete_document(doc_id)
+            
+            # Persist changes if enabled
+            await self._persist_changes()
             
             return {
-                "message": "Library deleted successfully",
-                "library_id": library_id
+                "message": f"Library {library_id} deleted successfully"
             }
         except Exception as e:
             logger.error(f"Delete library failed: {str(e)}")
@@ -245,6 +292,9 @@ class ContentService:
                 documents[document.id] = document
                 # Create a copy to avoid race conditions
                 document_data = document.model_dump()
+            
+            # Persist changes if enabled
+            await self._persist_changes()
             
             return {
                 "message": "Document created successfully",
@@ -309,6 +359,9 @@ class ContentService:
                 # Create a copy to avoid race conditions
                 document_data = document.model_dump()
             
+            # Persist changes if enabled
+            await self._persist_changes()
+            
             return {
                 "message": "Document updated successfully",
                 "document": document_data
@@ -331,17 +384,28 @@ class ContentService:
             ValueError: If document not found
         """
         try:
+            # Get the document
             async with self._document_write_lock():
                 documents = self.content_store.get('documents', {})
                 if document_id not in documents:
                     raise ValueError(f"Document {document_id} not found")
-                    
+                
+                # Get all chunks in this document
+                chunks = self.content_store.get('chunks', {})
+                document_chunks = [chunk_id for chunk_id, chunk in chunks.items() if chunk.document_id == document_id]
+                
                 # Delete the document
                 del documents[document_id]
             
+            # Delete all chunks in this document
+            for chunk_id in document_chunks:
+                await self.delete_chunk(chunk_id)
+            
+            # Persist changes if enabled
+            await self._persist_changes()
+            
             return {
-                "message": "Document deleted successfully",
-                "document_id": document_id
+                "message": f"Document {document_id} deleted successfully"
             }
         except Exception as e:
             logger.error(f"Delete document failed: {str(e)}")
@@ -401,6 +465,9 @@ class ContentService:
                         "position": chunk.position
                     }
                 )
+            
+            # Persist changes if enabled
+            await self._persist_changes()
             
             return {
                 "message": "Chunk created successfully",
@@ -565,7 +632,7 @@ class ContentService:
             search_results = self.similarity_service.search(
                 query_vector=query_embedding,
                 top_k=top_k,
-                filter_dict=filter_dict
+                filter_metadata=filter_dict
             )
             
             # Get the full chunk data for each result
@@ -635,3 +702,68 @@ class ContentService:
         except Exception as e:
             logger.error(f"Search failed: {str(e)}")
             raise
+            
+    async def load_from_disk(self):
+        """Load data from disk if persistence is enabled."""
+        if not self.enable_persistence or not self.persistence_service:
+            logger.warning("Persistence is disabled - cannot load from disk")
+            return False
+        
+        try:
+            # Load the latest snapshot
+            result = await self.persistence_service.load_latest_snapshot(self)
+            if result:
+                logger.info("Successfully loaded data from disk")
+            else:
+                logger.info("No data found on disk to load")
+            return result
+        except Exception as e:
+            logger.error(f"Error loading data from disk: {str(e)}")
+            return False
+            
+    async def get_libraries(self):
+        """Get all libraries.
+        
+        Returns:
+            List of libraries as dictionaries
+        """
+        async with self._library_lock:
+            libraries = self.content_store.get('libraries', {})
+            # Create a copy to avoid race conditions
+            return [lib.model_dump() for lib in libraries.values()]
+    
+    async def get_documents(self, library_id=None):
+        """Get all documents, optionally filtered by library_id.
+        
+        Args:
+            library_id: Optional library ID to filter by
+            
+        Returns:
+            List of documents as dictionaries
+        """
+        async with self._document_lock:
+            documents = self.content_store.get('documents', {})
+            # Create a copy to avoid race conditions
+            if library_id:
+                return [doc.model_dump() for doc_id, doc in documents.items() 
+                        if doc.library_id == library_id]
+            else:
+                return [doc.model_dump() for doc in documents.values()]
+    
+    async def get_chunks(self, document_id=None):
+        """Get all chunks, optionally filtered by document_id.
+        
+        Args:
+            document_id: Optional document ID to filter by
+            
+        Returns:
+            List of chunks as dictionaries
+        """
+        async with self._chunk_lock:
+            chunks = self.content_store.get('chunks', {})
+            # Create a copy to avoid race conditions
+            if document_id:
+                return [chunk.model_dump() for chunk_id, chunk in chunks.items() 
+                        if chunk.document_id == document_id]
+            else:
+                return [chunk.model_dump() for chunk in chunks.values()]

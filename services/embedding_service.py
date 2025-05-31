@@ -195,3 +195,51 @@ class EmbeddingService:
                 "document_count": self.doc_count,
                 "is_fitted": self.projection_matrix is not None
             }
+    
+    def get_model_data(self):
+        """
+        Get the model data for persistence.
+        Thread-safe implementation.
+        
+        Returns:
+            Dict containing the model data
+        """
+        with self._model_lock:
+            model_data = {
+                "vector_size": self.vector_size,
+                "min_word_freq": self.min_word_freq,
+                "vocabulary": self.vocabulary,
+                "idf": self.idf,
+                "doc_count": self.doc_count,
+            }
+            
+            # Convert projection matrix to list if it exists
+            if self.projection_matrix is not None:
+                model_data["projection_matrix"] = self.projection_matrix.tolist()
+            else:
+                model_data["projection_matrix"] = None
+                
+            return model_data
+    
+    def load_model_data(self, model_data):
+        """
+        Load the model data from persistence.
+        Thread-safe implementation.
+        
+        Args:
+            model_data: Dict containing the model data
+        """
+        with self._model_lock:
+            self.vector_size = model_data["vector_size"]
+            self.min_word_freq = model_data["min_word_freq"]
+            self.vocabulary = model_data["vocabulary"]
+            self.idf = model_data["idf"]
+            self.doc_count = model_data["doc_count"]
+            
+            # Convert projection matrix back to numpy array if it exists
+            if model_data["projection_matrix"] is not None:
+                self.projection_matrix = np.array(model_data["projection_matrix"])
+            else:
+                self.projection_matrix = None
+                
+            logger.info(f"Loaded embedding model with {len(self.vocabulary)} words in vocabulary")

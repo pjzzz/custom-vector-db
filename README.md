@@ -26,6 +26,7 @@ The primary goal of this project was to develop a comprehensive, self-contained 
 - Python client library for simplified interaction
 - Docker containerization for easy deployment
 - Jupyter notebook demos for interactive exploration
+- **Persistence to disk** with automatic snapshots and recovery
 
 ## Architecture
 
@@ -415,6 +416,46 @@ Based on extensive benchmarking, the system demonstrates the following performan
 - **Vector Storage**: Efficient memory usage with numpy arrays
 - **Index Overhead**: Minimal memory overhead for indexing structures
 - **Scaling**: Linear memory scaling with vector count
+
+## Persistence to Disk
+
+The system implements a robust persistence mechanism to ensure data durability across container restarts:
+
+### Persistence Architecture
+
+1. **Snapshot-Based Persistence**:
+   - Complete snapshots of the system state are taken at regular intervals
+   - Each snapshot includes content store, embedding model, vectors, and indexer data
+   - Atomic file operations ensure consistency even during crashes
+   - Snapshots are stored in a configurable data directory
+
+2. **Recovery Process**:
+   - On startup, the system attempts to load the latest snapshot
+   - If a snapshot is found, the system state is restored completely
+   - If no snapshot is found, the system initializes with sample data
+   - Thread-safe restoration ensures data integrity
+
+3. **Performance Considerations**:
+   - Background persistence minimizes impact on API performance
+   - Separate locks for different data structures prevent contention
+   - Incremental snapshots reduce disk I/O
+   - Cleanup of old snapshots prevents disk space exhaustion
+
+4. **Configuration Options**:
+   - `DATA_DIR`: Directory to store persistence files (default: "./data")
+   - `ENABLE_PERSISTENCE`: Whether to enable persistence (default: true)
+   - `SNAPSHOT_INTERVAL`: Seconds between automatic snapshots (default: 300)
+
+### Docker Integration
+
+The Docker configuration includes volume mounting to ensure persistence across container restarts:
+
+```yaml
+volumes:
+  - ./data:/app/data
+```
+
+This maps the host's `./data` directory to the container's `/app/data` directory, ensuring that all persistence files are stored on the host filesystem and survive container restarts.
 
 ## Technical Choices
 

@@ -41,27 +41,60 @@ async def get_content_service():
 
     # Initialize ContentService only once (singleton pattern)
     if _content_service is None:
+        # Get persistence configuration from environment variables
+        data_dir = os.environ.get("DATA_DIR", "./data")
+        enable_persistence = os.environ.get("ENABLE_PERSISTENCE", "true").lower() == "true"
+        snapshot_interval = int(os.environ.get("SNAPSHOT_INTERVAL", "300"))
+        
         # Initialize ContentService with custom vector search
         _content_service = ContentService(
             indexer_type=os.environ.get("INDEXER_TYPE", "suffix"),
-            embedding_dimension=1536  # Default embedding dimension
+            embedding_dimension=1536,  # Default embedding dimension
+            data_dir=data_dir,
+            enable_persistence=enable_persistence,
+            snapshot_interval=snapshot_interval
         )
-
-        # If we have sample texts, fit the embedding model
-        if os.environ.get("FIT_EMBEDDING_MODEL", "true").lower() == "true":
-            sample_texts = [
-                "Machine learning is a field of artificial intelligence",
-                "Natural language processing focuses on text understanding",
-                "Vector search enables semantic similarity queries",
-                "Embeddings are numerical representations of text or images",
-                "Thread safety ensures concurrent operations don't cause data corruption",
-                "Locks prevent race conditions in multi-threaded environments",
-                "Suffix arrays enable efficient substring searches",
-                "Tries are tree data structures for prefix matching",
-                "Inverted indices map terms to documents containing them",
-                "Content management systems organize and store digital content"
-            ]
-            _content_service.embedding_service.fit(sample_texts)
+        
+        # Try to load data from disk first
+        if enable_persistence:
+            logger.info("Attempting to load data from disk...")
+            loaded = await _content_service.load_from_disk()
+            if loaded:
+                logger.info("Successfully loaded data from disk")
+            else:
+                logger.info("No data found on disk, initializing with sample data")
+                # If we have sample texts, fit the embedding model
+                if os.environ.get("FIT_EMBEDDING_MODEL", "true").lower() == "true":
+                    sample_texts = [
+                        "Machine learning is a field of artificial intelligence",
+                        "Natural language processing focuses on text understanding",
+                        "Vector search enables semantic similarity queries",
+                        "Embeddings are numerical representations of text or images",
+                        "Thread safety ensures concurrent operations don't cause data corruption",
+                        "Locks prevent race conditions in multi-threaded environments",
+                        "Suffix arrays enable efficient substring searches",
+                        "Tries are tree data structures for prefix matching",
+                        "Inverted indices map terms to documents containing them",
+                        "Content management systems organize and store digital content"
+                    ]
+                    _content_service.embedding_service.fit(sample_texts)
+        else:
+            logger.info("Persistence is disabled, initializing with sample data")
+            # If we have sample texts, fit the embedding model
+            if os.environ.get("FIT_EMBEDDING_MODEL", "true").lower() == "true":
+                sample_texts = [
+                    "Machine learning is a field of artificial intelligence",
+                    "Natural language processing focuses on text understanding",
+                    "Vector search enables semantic similarity queries",
+                    "Embeddings are numerical representations of text or images",
+                    "Thread safety ensures concurrent operations don't cause data corruption",
+                    "Locks prevent race conditions in multi-threaded environments",
+                    "Suffix arrays enable efficient substring searches",
+                    "Tries are tree data structures for prefix matching",
+                    "Inverted indices map terms to documents containing them",
+                    "Content management systems organize and store digital content"
+                ]
+                _content_service.embedding_service.fit(sample_texts)
 
     return _content_service
 

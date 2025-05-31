@@ -11,6 +11,9 @@ services:
       - PYTHONPATH=/app
       - INDEXER_TYPE=suffix
       - FIT_EMBEDDING_MODEL=true
+      - DATA_DIR=/app/data
+      - ENABLE_PERSISTENCE=true
+      - SNAPSHOT_INTERVAL=300
     volumes:
       - ./data:/app/data
     restart: unless-stopped

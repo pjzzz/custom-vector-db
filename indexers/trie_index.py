@@ -3,6 +3,9 @@ from models.chunk import Chunk
 from collections import defaultdict
 import threading
 from copy import deepcopy
+import logging
+
+logger = logging.getLogger(__name__)
 
 class TrieNode:
     def __init__(self):
