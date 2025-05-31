@@ -55,6 +55,7 @@ async def search(request: SearchRequest):
         logger.error(f"Search failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.post("/upsert")
 async def upsert(request: UpsertRequest):
     """
@@ -69,6 +70,7 @@ async def upsert(request: UpsertRequest):
     except Exception as e:
         logger.error(f"Upsert failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/bulk-upsert")
 async def bulk_upsert(vectors: List[UpsertRequest]):
@@ -89,6 +91,7 @@ async def bulk_upsert(vectors: List[UpsertRequest]):
         logger.error(f"Bulk upsert failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.post("/delete")
 async def delete(request: DeleteRequest):
     """
@@ -100,6 +103,7 @@ async def delete(request: DeleteRequest):
         logger.error(f"Delete failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.get("/stats")
 async def get_stats():
     """
@@ -110,6 +114,7 @@ async def get_stats():
     except Exception as e:
         logger.error(f"Get stats failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/embedding")
 async def get_embedding(request: TextEmbeddingRequest):
@@ -126,6 +131,7 @@ async def get_embedding(request: TextEmbeddingRequest):
         logger.error(f"Get embedding failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.post("/bulk-embed")
 async def bulk_get_embeddings(texts: List[str]):
     """
@@ -137,6 +143,7 @@ async def bulk_get_embeddings(texts: List[str]):
     except Exception as e:
         logger.error(f"Bulk embedding failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/health")
 async def health_check():
