@@ -96,7 +96,9 @@ def create_chunks(document_id, texts):
 
 def search_text(query, indexer_type="suffix"):
     """Search for text using the specified indexer"""
-    print(f"\n=== Text search for: '{query}' using {indexer_type} indexer ===\n")
+    print(
+        f"\n=== Text search for: '{query}' using {indexer_type} indexer ===\n"
+    )
 
     url = f"{BASE_URL}/search/text"
     params = {
@@ -152,11 +154,15 @@ def run_demo():
     """Run the complete API demo"""
     # Sample texts for the demo
     texts = [
-        "Vector search is a technique used to find similar items in a dataset based on their vector representations.",
+        "Vector search is a technique used to find similar items in a dataset "
+        "based on their vector representations.",
         "Embeddings are numerical representations of data that capture semantic meaning.",
-        "Thread safety ensures that concurrent operations don't lead to race conditions or data corruption.",
-        "Cosine similarity measures the cosine of the angle between two vectors, indicating their similarity.",
-        "Dimensionality reduction techniques like random projection help manage high-dimensional data efficiently."
+        "Thread safety ensures that concurrent operations don't lead to race "
+        "conditions or data corruption.",
+        "Cosine similarity measures the cosine of the angle between two vectors, "
+        "indicating their similarity.",
+        "Dimensionality reduction techniques like random projection help manage "
+        "high-dimensional data efficiently."
     ]
 
     # Create library and document
@@ -208,6 +214,8 @@ def run_demo():
         vector_search("vector search")
 
     print("\n\nDemo completed successfully!")
+
+
 
 if __name__ == "__main__":
     run_demo()
