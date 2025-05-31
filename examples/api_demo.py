@@ -99,12 +99,12 @@ def search_text(query, indexer_type="suffix"):
     print(f"\n=== Text search for: '{query}' using {indexer_type} indexer ===\n")
 
     url = f"{BASE_URL}/search/text"
-    payload = {
+    params = {
         "query": query,
         "indexer_type": indexer_type
     }
 
-    response = requests.post(url, json=payload)
+    response = requests.post(url, params=params)
     print_response(response, "Text search results")
 
     return response.json() if response.status_code == 200 else None
@@ -115,12 +115,12 @@ def vector_search(query_text, top_k=5):
     print(f"\n=== Vector search for: '{query_text}' ===\n")
 
     url = f"{BASE_URL}/search/vector"
-    payload = {
+    params = {
         "query_text": query_text,
         "top_k": top_k
     }
 
-    response = requests.post(url, json=payload)
+    response = requests.post(url, params=params)
     print_response(response, "Vector search results")
 
     return response.json() if response.status_code == 200 else None
