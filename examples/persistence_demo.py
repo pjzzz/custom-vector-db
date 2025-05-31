@@ -88,6 +88,7 @@ async def create_sample_data(content_service: ContentService) -> Dict[str, str]:
         "chunk_ids": chunk_ids
     }
 
+
 async def perform_searches(content_service: ContentService):
     """Perform sample searches to demonstrate functionality."""
     # Vector search
@@ -109,6 +110,7 @@ async def perform_searches(content_service: ContentService):
     logger.info(f"Text search returned {len(text_results)} results")
     for i, result in enumerate(text_results):
         logger.info(f"  Result {i+1}: Text: {result['text'][:50]}...")
+
 
 async def verify_data_integrity(content_service: ContentService, ids: Dict[str, str]):
     """Verify that all data is correctly loaded."""
@@ -140,6 +142,7 @@ async def verify_data_integrity(content_service: ContentService, ids: Dict[str, 
 
     logger.info("Data integrity verified - all data loaded correctly!")
     return True
+
 
 async def main():
     """Main function to run the demo."""

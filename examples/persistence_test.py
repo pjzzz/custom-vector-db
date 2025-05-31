@@ -25,6 +25,7 @@ logging.basicConfig(level=logging.INFO,
                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+
 async def main():
     # Create a temporary data directory for testing
     data_dir = "./test_persistence_data"

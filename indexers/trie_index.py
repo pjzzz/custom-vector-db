@@ -7,11 +7,13 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class TrieNode:
     def __init__(self):
         self.children: Dict[str, TrieNode] = {}
         self.documents: Dict[str, List[Tuple[str, int]]] = defaultdict(list)
         self.is_end_of_word = False
+
 
 class TrieIndex:
     """
