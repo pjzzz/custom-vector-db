@@ -186,9 +186,6 @@ def run_demo():
     # Search examples
     print("\n\n=== SEARCH EXAMPLES ===\n")
 
-    # Text search with different indexers
-    search_text("vector search", indexer_type="inverted")
-    search_text("vector", indexer_type="trie")
     search_text("search", indexer_type="suffix")
 
     # Vector search examples
