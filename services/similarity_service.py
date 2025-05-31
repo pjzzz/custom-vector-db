@@ -1,8 +1,7 @@
 import numpy as np
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Optional
 import threading
 import logging
-from models.chunk import Chunk
 
 logger = logging.getLogger(__name__)
 
