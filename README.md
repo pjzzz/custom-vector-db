@@ -27,6 +27,7 @@ The primary goal of this project was to develop a comprehensive, self-contained 
 - Docker containerization for easy deployment
 - Jupyter notebook demos for interactive exploration
 - **Persistence to disk** with automatic snapshots and recovery
+- Configurable indexing strategies via environment variables
 
 ## Architecture
 
@@ -48,6 +49,170 @@ The system implements three different thread-safe indexing algorithms:
    - Build time complexity: O(T) where T is the total text length
    - Search time complexity: O(Q + k) where Q is the number of query terms and k is the number of matches
    - Best for boolean queries and exact word matching
+   - Optimized `remove_chunk` method that only processes terms actually appearing in the chunk being removed, significantly improving efficiency for large indexes
+
+## Configuration Options
+
+### Docker Environment Variables
+
+The system can be configured using environment variables when running with Docker:
+
+```bash
+# Basic usage with default settings
+docker run -p 8000:8000 vector-db-image
+
+# Specify a different indexer type
+docker run -p 8000:8000 -e INDEXER_TYPE=trie vector-db-image
+
+# Configure embedding dimension
+docker run -p 8000:8000 -e EMBEDDING_DIMENSION=768 vector-db-image
+
+# Disable automatic persistence
+docker run -p 8000:8000 -e ENABLE_PERSISTENCE=false vector-db-image
+
+# Configure snapshot interval (in seconds)
+docker run -p 8000:8000 -e SNAPSHOT_INTERVAL=600 vector-db-image
+
+# Specify data directory for persistence
+docker run -p 8000:8000 -e DATA_DIR=/data -v ./my_data:/data vector-db-image
+```
+
+### Available Configuration Options
+
+| Environment Variable | Description | Default Value | Options |
+|----------------------|-------------|---------------|----------|
+| `INDEXER_TYPE` | Type of indexer to use | `inverted` | `inverted`, `trie`, `suffix` |
+| `EMBEDDING_DIMENSION` | Dimension of embedding vectors | `1536` | Any positive integer |
+| `ENABLE_PERSISTENCE` | Whether to enable persistence to disk | `true` | `true`, `false` |
+| `SNAPSHOT_INTERVAL` | Seconds between automatic snapshots | `300` | Any positive integer |
+| `DATA_DIR` | Directory to store persistence files | `./data` | Any valid path |
+| `FIT_EMBEDDING_MODEL` | Whether to fit the embedding model on startup | `true` | `true`, `false` |
+
+### Indexer Selection Guide
+
+- **InvertedIndex** (`INDEXER_TYPE=inverted`): Best for traditional keyword search and boolean queries. Most memory-efficient option.
+- **TrieIndex** (`INDEXER_TYPE=trie`): Excellent for autocomplete features and prefix-based searches. Moderate memory usage.
+- **SuffixArrayIndex** (`INDEXER_TYPE=suffix`): Best for substring searches and fuzzy matching. Higher memory usage but most flexible search capabilities.
+
+## Usage Examples
+
+### Creating and Managing Content
+
+```python
+from services.content_service import ContentService
+from models import Library, Document, Chunk
+from datetime import datetime
+import asyncio
+
+async def main():
+    # Initialize with desired indexer type
+    content_service = ContentService(indexer_type='inverted')
+    
+    # Create a library
+    library = Library(
+        id="my-library",
+        name="My Knowledge Base",
+        description="Collection of technical documents",
+        created_at=datetime.now()
+    )
+    await content_service.create_library(library)
+    
+    # Create a document
+    document = Document(
+        id="doc-1",
+        library_id="my-library",
+        title="Vector Database Guide",
+        created_at=datetime.now()
+    )
+    await content_service.create_document(document)
+    
+    # Add chunks to the document
+    chunk = Chunk(
+        id="chunk-1",
+        document_id="doc-1",
+        text="Vector databases store and retrieve data based on similarity.",
+        position=0,
+        created_at=datetime.now(),
+        metadata={"topic": "introduction"}
+    )
+    await content_service.create_chunk(chunk)
+
+# Run the example
+asyncio.run(main())
+```
+
+### Performing Searches
+
+```python
+async def search_example():
+    content_service = ContentService(indexer_type='suffix')
+    
+    # Text search using different indexers
+    inverted_results = await content_service.search("vector database", indexer_type="inverted")
+    trie_results = await content_service.search("vec", indexer_type="trie")  # Prefix search
+    suffix_results = await content_service.search("base", indexer_type="suffix")  # Suffix search
+    
+    # Vector search (semantic search)
+    vector_results = await content_service.vector_search("How do similarity searches work?")
+    
+    # Print results
+    print(f"Found {len(vector_results)} semantically similar chunks")
+
+# Run the search example
+asyncio.run(search_example())
+```
+
+### Using the REST API
+
+```bash
+# Start the API server
+uvicorn main:app --reload
+
+# Create a library
+curl -X POST "http://localhost:8000/libraries" \
+  -H "Content-Type: application/json" \
+  -d '{"id":"tech-lib","name":"Technology Library","description":"Tech articles and guides"}'  
+
+# Search for content
+curl -X POST "http://localhost:8000/search" \
+  -H "Content-Type: application/json" \
+  -d '{"query":"vector database","top_k":5,"indexer_type":"inverted"}'
+```
+
+## Performance Optimizations
+
+### InvertedIndex Optimizations
+
+The `InvertedIndex` implementation includes several key optimizations for performance and efficiency:
+
+1. **Optimized `remove_chunk` Method**
+   - Instead of scanning the entire index when removing a chunk, the method only processes terms that actually appear in the chunk being removed
+   - This optimization significantly reduces computational overhead for large indexes with many terms
+   - Time complexity improved from O(T) where T is the total number of terms in the index to O(C) where C is the number of terms in the chunk being removed
+
+2. **Efficient Term Processing**
+   - Terms are tokenized and normalized during indexing for consistent matching
+   - Stop words can be filtered to reduce index size and improve search relevance
+   - Term frequency information is maintained for relevance scoring
+
+3. **Thread-Safe Operations**
+   - All index operations use fine-grained locking to ensure thread safety
+   - Read operations can proceed concurrently for high throughput
+   - Write operations are properly synchronized to prevent data corruption
+
+### ContentService Optimizations
+
+The `ContentService` includes optimizations for efficient data management:
+
+1. **Direct Object Access**
+   - The `delete_library` method directly accesses documents from the library object
+   - The `delete_document` method directly accesses chunks from the document object
+   - These optimizations avoid scanning entire collections, improving performance for large datasets
+
+2. **Asynchronous Operations**
+   - All operations are implemented as async methods for non-blocking I/O
+   - Background persistence tasks run concurrently with normal operations
+   - Test mode allows disabling background tasks for reliable testing
 
 ### Custom Vector Search Implementation
 
