@@ -150,19 +150,38 @@ class InvertedIndex:
         Returns:
             True if the chunk was removed, False otherwise
         """
-        # First check if the chunk exists
+        # First get the chunk and its document ID before removing it
+        chunk_to_remove = None
+        doc_id = None
+        
         with self._chunk_lock:
             if chunk_id not in self.chunk_map:
                 return False
+                
+            # Get the chunk and its document ID before removing it
+            chunk_to_remove = self.chunk_map[chunk_id]
+            doc_id = chunk_to_remove.document_id
+            
             # Remove the chunk from the chunk map
             del self.chunk_map[chunk_id]
-
-        # Then remove all references to the chunk from the index
+        
+        # If we couldn't get the chunk or document ID, we can't proceed efficiently
+        if not chunk_to_remove or not doc_id:
+            logger.warning(f"Could not get chunk data for chunk_id {chunk_id}")
+            return False
+            
+        # Tokenize the chunk to get the terms we need to update
+        terms_to_update = set(self.tokenize(chunk_to_remove.text))
+        
+        # Then remove all references to the chunk from the index, but only for relevant terms
         with self._index_lock:
-            # For each term in the index
-            for term in list(self.index.keys()):
-                # For each document in the term's posting list
-                for doc_id in list(self.index[term].keys()):
+            # Only process terms that are in the chunk and in the index
+            for term in terms_to_update:
+                if term not in self.index:
+                    continue
+                    
+                # If this document exists in the posting list for this term
+                if doc_id in self.index[term]:
                     # Filter out positions for this chunk
                     self.index[term][doc_id] = [
                         pos for pos in self.index[term][doc_id]
@@ -174,7 +193,7 @@ class InvertedIndex:
                         del self.index[term][doc_id]
 
                 # If no documents left for this term, remove the term
-                if not self.index[term]:
+                if term in self.index and not self.index[term]:
                     del self.index[term]
 
         return True
