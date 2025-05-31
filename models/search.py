@@ -4,14 +4,14 @@ from datetime import datetime
 
 class SearchRequest(BaseModel):
     """Request model for vector search."""
-    
+
     query: str = Field(..., description="The text query to search for")
     top_k: int = Field(10, description="Number of results to return")
     filter: Optional[Dict[str, str]] = Field(
-        None, 
+        None,
         description="Optional metadata filter for search results"
     )
-    
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -25,11 +25,11 @@ class SearchRequest(BaseModel):
 
 class SearchResponse(BaseModel):
     """Response model for vector search results."""
-    
+
     matches: List[Dict] = Field(..., description="List of matching results")
     query_vector: List[float] = Field(..., description="Vector representation of the query")
     top_k: int = Field(..., description="Number of results returned")
-    
+
     class Config:
         json_schema_extra = {
             "example": {

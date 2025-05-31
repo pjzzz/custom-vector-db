@@ -6,7 +6,7 @@ from .document import Document
 
 class Library(BaseModel):
     """Represents a collection of documents."""
-    
+
     id: str = Field(..., description="Unique identifier for the library")
     name: str = Field(..., description="Name of the library")
     description: Optional[str] = Field(

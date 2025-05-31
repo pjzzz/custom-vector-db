@@ -6,7 +6,7 @@ from .chunk import Chunk
 
 class Document(BaseModel):
     """Represents a document containing multiple chunks."""
-    
+
     id: str = Field(..., description="Unique identifier for the document")
     title: str = Field(..., description="Title of the document")
     library_id: str = Field(..., description="ID of the library this document belongs to")

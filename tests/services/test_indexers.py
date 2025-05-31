@@ -54,16 +54,16 @@ async def test_inverted_index(test_chunks):
     """Test the InvertedIndex implementation."""
     # Create the index
     index = InvertedIndex()
-    
+
     # Add chunks to the index
     for chunk in test_chunks:
         index.add_chunk(chunk)
-    
+
     # Test exact word search
     results = index.search("Python")
     assert len(results) == 2
     assert all(chunk_id in ["chunk_1", "chunk_3"] for _, chunk_id, _ in results)
-    
+
     # Test multiple word search
     results = index.search("programming language")
     assert len(results) == 2
@@ -74,15 +74,15 @@ async def test_trie_index(test_chunks):
     """Test the TrieIndex implementation."""
     # Create the index
     index = TrieIndex()
-    
+
     # Add chunks to the index
     for chunk in test_chunks:
         index.add_chunk(chunk)
-    
+
     # Test prefix search
     results = index.search("pro")
     assert len(results) >= 2  # Should find "programming" in chunks
-    
+
     # Test exact word search
     results = index.search("Python")
     assert len(results) == 2
@@ -93,15 +93,15 @@ async def test_suffix_array_index(test_chunks):
     """Test the SuffixArrayIndex implementation."""
     # Create the index
     index = SuffixArrayIndex()
-    
+
     # Add chunks to the index
     for chunk in test_chunks:
         index.add_chunk(chunk)
-    
+
     # Test suffix search
     results = index.search("age")
     assert len(results) >= 2  # Should find "language" in chunks
-    
+
     # Test substring search
     results = index.search("program")
     assert len(results) >= 2  # Should find "programming" in chunks

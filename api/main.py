@@ -45,7 +45,7 @@ async def get_content_service():
         data_dir = os.environ.get("DATA_DIR", "./data")
         enable_persistence = os.environ.get("ENABLE_PERSISTENCE", "true").lower() == "true"
         snapshot_interval = int(os.environ.get("SNAPSHOT_INTERVAL", "300"))
-        
+
         # Initialize ContentService with custom vector search
         _content_service = ContentService(
             indexer_type=os.environ.get("INDEXER_TYPE", "suffix"),
@@ -54,7 +54,7 @@ async def get_content_service():
             enable_persistence=enable_persistence,
             snapshot_interval=snapshot_interval
         )
-        
+
         # Try to load data from disk first
         if enable_persistence:
             logger.info("Attempting to load data from disk...")
@@ -239,6 +239,7 @@ async def vector_search(
         logger.error(f"Vector search failed: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
+
 # Utility endpoints
 @app.get("/stats")
 async def get_stats(content_service: ContentService = Depends(get_content_service)):
@@ -246,17 +247,17 @@ async def get_stats(content_service: ContentService = Depends(get_content_servic
     try:
         # Get embedding model info
         embedding_info = content_service.embedding_service.get_model_info()
-        
+
         # Get similarity service stats if available
         similarity_stats = content_service.similarity_service.get_stats()
-        
+
         # Count items in content store
         content_stats = {
             "libraries": len(content_service.content_store.get("libraries", {})),
             "documents": len(content_service.content_store.get("documents", {})),
             "chunks": len(content_service.content_store.get("chunks", {}))
         }
-        
+
         return {
             "embedding_service": embedding_info,
             "similarity_service": similarity_stats,

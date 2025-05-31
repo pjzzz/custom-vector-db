@@ -45,7 +45,7 @@ class VectorService:
             logger.error(f"Delete failed: {str(e)}")
             raise
 
-    async def search(self, query_vector: List[float], top_k: int = settings.DEFAULT_TOP_K, 
+    async def search(self, query_vector: List[float], top_k: int = settings.DEFAULT_TOP_K,
               filter: Optional[Dict] = None) -> Dict:
         """Search for similar vectors using cosine similarity."""
         try:

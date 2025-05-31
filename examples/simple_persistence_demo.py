@@ -47,23 +47,23 @@ async def run_demo():
     if os.path.exists(PERSISTENCE_DIR):
         logger.info(f"Cleaning up existing persistence directory: {PERSISTENCE_DIR}")
         shutil.rmtree(PERSISTENCE_DIR)
-    
+
     # Import here to avoid circular imports
     import sys
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from services.content_service import ContentService
     from models import Library, Document, Chunk
-    
+
     # Step 1: Create first ContentService instance with persistence
     logger.info("=== STEP 1: Creating first ContentService instance ===")
     first_service = ContentService(
         enable_persistence=True,
         data_dir=PERSISTENCE_DIR
     )
-    
+
     # Step 2: Create sample data
     logger.info("=== STEP 2: Creating sample data ===")
-    
+
     # Create a library
     library_id = str(uuid.uuid4())
     library = Library(
@@ -73,7 +73,7 @@ async def run_demo():
     )
     await first_service.create_library(library)
     logger.info(f"Created library with ID: {library_id}")
-    
+
     # Create a document
     document_id = str(uuid.uuid4())
     document = Document(
@@ -84,7 +84,7 @@ async def run_demo():
     )
     await first_service.create_document(document)
     logger.info(f"Created document with ID: {document_id}")
-    
+
     # Create chunks
     chunk_ids = []
     for i, text in enumerate(SAMPLE_TEXTS):
@@ -103,10 +103,10 @@ async def run_demo():
         await first_service.create_chunk(chunk)
         chunk_ids.append(chunk_id)
         logger.info(f"Created chunk {i+1} with ID: {chunk_id}")
-    
+
     # Step 3: Perform searches
     logger.info("=== STEP 3: Performing searches with first instance ===")
-    
+
     # Vector search
     logger.info("Performing vector search for 'machine learning algorithms'...")
     vector_results = await first_service.vector_search(
@@ -116,7 +116,7 @@ async def run_demo():
     logger.info(f"Vector search returned {len(vector_results)} results")
     for i, result in enumerate(vector_results):
         logger.info(f"  Result {i+1}: Score {result.get('score', 0):.4f}, Text: {result.get('text', '')[:50]}...")
-    
+
     # Text search (if available)
     try:
         logger.info("Performing text search for 'learning'...")
@@ -129,27 +129,27 @@ async def run_demo():
             logger.info(f"  Result {i+1}: Text: {result.get('text', '')[:50]}...")
     except Exception as e:
         logger.warning(f"Text search not available: {str(e)}")
-    
+
     # Step 4: Manually trigger a snapshot
     logger.info("=== STEP 4: Manually triggering a snapshot ===")
     await first_service.persistence_service.create_snapshot(first_service)
-    
+
     # Step 5: Wait for snapshot to complete
     logger.info("=== STEP 5: Waiting for snapshot to complete ===")
     time.sleep(2)
-    
+
     # Step 6: Simulate shutdown by creating a new ContentService
     logger.info("=== STEP 6: Simulating shutdown and restart ===")
     logger.info("Shutting down first ContentService instance...")
     # No explicit shutdown needed, just let it go out of scope
-    
+
     # Step 7: Create a new ContentService instance
     logger.info("=== STEP 7: Creating new ContentService instance ===")
     new_service = ContentService(
         enable_persistence=True,
         data_dir=PERSISTENCE_DIR
     )
-    
+
     # Step 8: Load data from disk
     logger.info("=== STEP 8: Loading data from disk ===")
     success = await new_service.persistence_service.load_latest_snapshot(new_service)
@@ -158,10 +158,10 @@ async def run_demo():
     else:
         logger.error("Failed to load data from disk")
         return
-    
+
     # Step 9: Verify data integrity
     logger.info("=== STEP 9: Verifying data integrity ===")
-    
+
     # Check if libraries were loaded
     libraries = new_service.content_store.get('libraries', {})
     logger.info(f"Loaded {len(libraries)} libraries")
@@ -169,7 +169,7 @@ async def run_demo():
         logger.info(f"Found library with ID: {library_id}")
     else:
         logger.error(f"Library with ID {library_id} not found!")
-    
+
     # Check if documents were loaded
     documents = new_service.content_store.get('documents', {})
     logger.info(f"Loaded {len(documents)} documents")
@@ -177,7 +177,7 @@ async def run_demo():
         logger.info(f"Found document with ID: {document_id}")
     else:
         logger.error(f"Document with ID {document_id} not found!")
-    
+
     # Check if chunks were loaded
     chunks = new_service.content_store.get('chunks', {})
     logger.info(f"Loaded {len(chunks)} chunks")
@@ -186,10 +186,10 @@ async def run_demo():
             logger.info(f"Found chunk with ID: {chunk_id}")
         else:
             logger.error(f"Chunk with ID {chunk_id} not found!")
-    
+
     # Step 10: Perform the same searches with the new instance
     logger.info("=== STEP 10: Performing searches with new instance ===")
-    
+
     # Vector search
     logger.info("Performing vector search for 'machine learning algorithms'...")
     vector_results = await new_service.vector_search(
@@ -199,7 +199,7 @@ async def run_demo():
     logger.info(f"Vector search returned {len(vector_results)} results")
     for i, result in enumerate(vector_results):
         logger.info(f"  Result {i+1}: Score {result.get('score', 0):.4f}, Text: {result.get('text', '')[:50]}...")
-    
+
     # Text search (if available)
     try:
         logger.info("Performing text search for 'learning'...")
@@ -212,13 +212,13 @@ async def run_demo():
             logger.info(f"  Result {i+1}: Text: {result.get('text', '')[:50]}...")
     except Exception as e:
         logger.warning(f"Text search not available: {str(e)}")
-    
+
     # Step 11: Clean up
     logger.info("=== STEP 11: Cleaning up ===")
     if os.path.exists(PERSISTENCE_DIR):
         logger.info(f"Cleaning up persistence directory: {PERSISTENCE_DIR}")
         shutil.rmtree(PERSISTENCE_DIR)
-    
+
     logger.info("=== Demo completed successfully! ===")
 
 async def main():

@@ -71,7 +71,7 @@ class TestContentService:
         """
         # First create the library
         await content_service.create_library(test_library)
-        
+
         # Then get it
         result = await content_service.get_library(test_library.id)
         assert result["message"] == "Library retrieved successfully"
@@ -83,12 +83,12 @@ class TestContentService:
         """
         # First create the library
         await content_service.create_library(test_library)
-        
+
         # Update it
         updated_library = test_library.model_copy()
         updated_library.name = "Updated Library"
         result = await content_service.update_library(test_library.id, updated_library)
-        
+
         assert result["message"] == "Library updated successfully"
         assert result["library"] == updated_library.model_dump()
 
@@ -98,7 +98,7 @@ class TestContentService:
         """
         # First create the library
         await content_service.create_library(test_library)
-        
+
         # Delete it
         result = await content_service.delete_library(test_library.id)
         assert result["message"] == "Library deleted successfully"
@@ -111,7 +111,7 @@ class TestContentService:
         # Create the library first
         library = Library(id="lib_1", name="Test Library")
         await content_service.create_library(library)
-        
+
         result = await content_service.create_document(test_document)
         assert result["message"] == "Document created successfully"
         assert result["document"] == test_document.model_dump()
@@ -124,7 +124,7 @@ class TestContentService:
         library = Library(id="lib_1", name="Test Library")
         await content_service.create_library(library)
         await content_service.create_document(test_document)
-        
+
         result = await content_service.get_document(test_document.id)
         assert result["message"] == "Document retrieved successfully"
         assert result["document"] == test_document.model_dump()
@@ -137,12 +137,12 @@ class TestContentService:
         library = Library(id="lib_1", name="Test Library")
         await content_service.create_library(library)
         await content_service.create_document(test_document)
-        
+
         # Update the document
         updated_document = test_document.model_copy()
         updated_document.title = "Updated Title"
         result = await content_service.update_document(test_document.id, updated_document)
-        
+
         assert result["message"] == "Document updated successfully"
         assert result["document"] == updated_document.model_dump()
 
@@ -154,7 +154,7 @@ class TestContentService:
         library = Library(id="lib_1", name="Test Library")
         await content_service.create_library(library)
         await content_service.create_document(test_document)
-        
+
         result = await content_service.delete_document(test_document.id)
         assert result["message"] == "Document deleted successfully"
         assert result["document_id"] == test_document.id
@@ -168,7 +168,7 @@ class TestContentService:
         document = Document(id="doc_1", title="Test Document", library_id="lib_1")
         await content_service.create_library(library)
         await content_service.create_document(document)
-        
+
         result = await content_service.create_chunk(test_chunk)
         assert result["message"] == "Chunk created successfully"
         assert result["chunk"] == test_chunk.model_dump()
@@ -183,7 +183,7 @@ class TestContentService:
         await content_service.create_library(library)
         await content_service.create_document(document)
         await content_service.create_chunk(test_chunk)
-        
+
         result = await content_service.get_chunk(test_chunk.id)
         assert result["message"] == "Chunk retrieved successfully"
         assert result["chunk"] == test_chunk.model_dump()
@@ -198,12 +198,12 @@ class TestContentService:
         await content_service.create_library(library)
         await content_service.create_document(document)
         await content_service.create_chunk(test_chunk)
-        
+
         # Update the chunk
         updated_chunk = test_chunk.model_copy()
         updated_chunk.text = "Updated text"
         result = await content_service.update_chunk(test_chunk.id, updated_chunk)
-        
+
         assert result["message"] == "Chunk updated successfully"
         assert result["chunk"] == updated_chunk.model_dump()
 
@@ -217,7 +217,7 @@ class TestContentService:
         await content_service.create_library(library)
         await content_service.create_document(document)
         await content_service.create_chunk(test_chunk)
-        
+
         result = await content_service.delete_chunk(test_chunk.id)
         assert result["message"] == "Chunk deleted successfully"
         assert result["chunk_id"] == test_chunk.id

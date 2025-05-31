@@ -146,10 +146,10 @@ async def health_check():
     try:
         # Check Pinecone connection
         stats = vector_service.get_stats()
-        
+
         # Check OpenAI connection
         embedding_service.get_embedding("test")
-        
+
         return {"status": "healthy", "stats": stats}
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")

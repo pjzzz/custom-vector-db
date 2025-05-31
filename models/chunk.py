@@ -5,7 +5,7 @@ from .config import EXAMPLE_TIMESTAMP
 
 class Chunk(BaseModel):
     """Represents a text chunk with metadata and vector embedding."""
-    
+
     id: str = Field(..., description="Unique identifier for the chunk")
     text: str = Field(..., description="Text content of the chunk")
     document_id: str = Field(..., description="ID of the document this chunk belongs to")

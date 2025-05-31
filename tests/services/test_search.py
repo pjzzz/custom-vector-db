@@ -57,11 +57,11 @@ async def test_search_with_inverted_index(content_service, test_chunks):
         title="Programming Languages",
         library_id="lib_1"
     )
-    
+
     # Add chunks to the service
     for chunk in test_chunks:
         await content_service.create_chunk(chunk)
-    
+
     # Test search with inverted index
     results = await content_service.search("Python", indexer_type="inverted")
     assert len(results) == 2  # Should find both Python chunks
@@ -76,11 +76,11 @@ async def test_search_with_trie_index(content_service, test_chunks):
         title="Programming Languages",
         library_id="lib_1"
     )
-    
+
     # Add chunks to the service
     for chunk in test_chunks:
         await content_service.create_chunk(chunk)
-    
+
     # Test search with trie index
     results = await content_service.search("pro", indexer_type="trie")  # Prefix search
     assert len(results) == 2  # Should find "programming" and "popular"
@@ -95,11 +95,11 @@ async def test_search_with_suffix_index(content_service, test_chunks):
         title="Programming Languages",
         library_id="lib_1"
     )
-    
+
     # Add chunks to the service
     for chunk in test_chunks:
         await content_service.create_chunk(chunk)
-    
+
     # Test search with suffix array index
     results = await content_service.search("age", indexer_type="suffix")  # Suffix search
     assert len(results) == 2  # Should find "language" in both chunks
@@ -115,11 +115,11 @@ async def test_search_with_complete_content(content_service, test_chunks):
         library_id="lib_1",
         content="This is a sample content for testing search functionality."
     )
-    
+
     # Add chunks to the service
     for chunk in test_chunks:
         await content_service.create_chunk(chunk)
-    
+
     # Test search with complete content
     results = await content_service.search("sample", indexer_type="complete")
     assert len(results) == 1  # Should find the document with the sample content
@@ -134,7 +134,7 @@ async def test_search_with_complete_content_and_chunks(content_service, test_chu
         name="Programming Library"
     )
     await content_service.create_library(library)
-    
+
     # Create document
     document = Document(
         id="doc_1",
@@ -143,11 +143,11 @@ async def test_search_with_complete_content_and_chunks(content_service, test_chu
         content="This is a sample content for testing search functionality."
     )
     await content_service.create_document(document)
-    
+
     # Add chunks to the service
     for chunk in test_chunks:
         await content_service.create_chunk(chunk)
-    
+
     # Test search with complete content and chunks
     results = await content_service.search("Python sample", indexer_type="complete")
     assert len(results) == 2  # Should find the document with the sample content and the Python chunk
