@@ -23,7 +23,8 @@ class TestVectorSearch(unittest.TestCase):
         # Create a content service with custom vector search
         self.content_service = ContentService(
             indexer_type='suffix',  # Use suffix array index for testing
-            embedding_dimension=1536
+            embedding_dimension=1536,
+            test_mode=True  # Use test mode to disable background tasks
         )
 
         # Fit the embedding model on sample texts
@@ -93,7 +94,7 @@ class TestVectorSearch(unittest.TestCase):
                 text=self.generate_random_text(),
                 position=i,
                 created_at=datetime.now(),
-                metadata={"index": i}
+                metadata={"index": str(i)}
             )
             await self.content_service.create_chunk(chunk)
             chunks.append(chunk)
@@ -107,7 +108,7 @@ class TestVectorSearch(unittest.TestCase):
         asyncio.set_event_loop(loop)
 
         # Create test data
-        chunks = loop.run_until_complete(self.create_test_data())
+        loop.run_until_complete(self.create_test_data())
 
         # Perform vector search
         query = "vector similarity search with thread safety"
@@ -119,7 +120,7 @@ class TestVectorSearch(unittest.TestCase):
         self.assertIsNotNone(results)
         self.assertLessEqual(len(results), 5)
         for result in results:
-            self.assertIn("chunk", result)
+            self.assertIn("id", result)
             self.assertIn("score", result)
             self.assertGreaterEqual(result["score"], 0)
             self.assertLessEqual(result["score"], 1)
@@ -134,7 +135,7 @@ class TestVectorSearch(unittest.TestCase):
         asyncio.set_event_loop(setup_loop)
 
         # Create test data
-        chunks = setup_loop.run_until_complete(self.create_test_data())
+        setup_loop.run_until_complete(self.create_test_data())
 
         # Define worker function for threads
         def worker(thread_id, results):
@@ -180,7 +181,7 @@ class TestVectorSearch(unittest.TestCase):
         for thread_id, results in thread_results.items():
             self.assertIsInstance(results, list)
             for result in results:
-                self.assertIn("chunk", result)
+                self.assertIn("id", result)
                 self.assertIn("score", result)
 
         # Clean up
@@ -211,7 +212,7 @@ class TestVectorSearch(unittest.TestCase):
                         text=f"Thread {thread_id} creating chunk {i} with vector embedding",
                         position=thread_id * 10 + i,
                         created_at=datetime.now(),
-                        metadata={"thread": thread_id, "index": i}
+                        metadata={"thread": str(thread_id), "index": str(i)}
                     )
                     loop.run_until_complete(self.content_service.create_chunk(chunk))
                     new_chunks.append(chunk.id)

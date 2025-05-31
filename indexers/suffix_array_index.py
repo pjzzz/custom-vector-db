@@ -1,4 +1,4 @@
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set, Tuple, Any
 from models.chunk import Chunk
 import bisect
 import threading
@@ -17,17 +17,17 @@ class SuffixArrayIndex:
     - Search: O(P log T + k) where P is pattern length and k is number of results
 
     This index is particularly useful for substring searches and fuzzy matching.
-    It's more powerful than the other two but has higher build time complexity.
+    It's more powerful than the other two i.e. inverted and trie but has higher build time complexity.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.suffix_array: List[Tuple[str, int, str, int]] = []  # (suffix, position, document_id, chunk_id)
         self.chunk_map: Dict[str, Chunk] = {}
         # Add thread safety with locks
         self._suffix_lock = threading.RLock()  # Reentrant lock for suffix array operations
         self._chunk_lock = threading.RLock()   # Reentrant lock for chunk map operations
 
-    def add_chunk(self, chunk: Chunk):
+    def add_chunk(self, chunk: Chunk) -> None:
         """Add a chunk to the index with thread safety."""
         # Use locks to ensure thread safety
         with self._chunk_lock:
@@ -99,7 +99,7 @@ class SuffixArrayIndex:
 
         return True
 
-    def get_serializable_data(self):
+    def get_serializable_data(self) -> Dict[str, Any]:
         """Get serializable data for persistence.
         Thread-safe implementation.
 
@@ -117,7 +117,7 @@ class SuffixArrayIndex:
                 "chunk_map": chunk_dict
             }
 
-    def load_serializable_data(self, data):
+    def load_serializable_data(self, data: Dict[str, Any]) -> None:
         """Load serializable data from persistence.
         Thread-safe implementation.
 

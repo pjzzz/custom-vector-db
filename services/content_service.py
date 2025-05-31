@@ -22,7 +22,8 @@ class ContentService:
              embedding_dimension: int = 1536,
              data_dir: str = "./data",
              enable_persistence: bool = True,
-             snapshot_interval: int = 300) -> None:
+             snapshot_interval: int = 300,
+             test_mode: bool = False) -> None:
         """Initialize with vector service.
 
         Args:
@@ -65,7 +66,8 @@ class ContentService:
             self.persistence_service = PersistenceService(
                 data_dir=data_dir,
                 snapshot_interval=snapshot_interval,
-                enable_auto_persist=True
+                enable_auto_persist=True,
+                test_mode=test_mode
             )
             logger.info(f"Initialized persistence service with data directory: {data_dir}")
         else:
@@ -237,9 +239,9 @@ class ContentService:
                 if library_id not in libraries:
                     raise ValueError(f"Library {library_id} not found")
 
-                # Get all documents in this library
-                documents = self.content_store.get('documents', {})
-                library_documents = [doc_id for doc_id, doc in documents.items() if doc.library_id == library_id]
+                # Get all documents directly from the library object
+                library = libraries[library_id]
+                library_documents = [doc.id for doc in library.documents] if hasattr(library, 'documents') else []
 
                 # Delete the library
                 del libraries[library_id]
@@ -391,9 +393,9 @@ class ContentService:
                 if document_id not in documents:
                     raise ValueError(f"Document {document_id} not found")
 
-                # Get all chunks in this document
-                chunks = self.content_store.get('chunks', {})
-                document_chunks = [chunk_id for chunk_id, chunk in chunks.items() if chunk.document_id == document_id]
+                # Get all chunks directly from the document object
+                document = documents[document_id]
+                document_chunks = [chunk.id for chunk in document.chunks] if hasattr(document, 'chunks') else []
 
                 # Delete the document
                 del documents[document_id]

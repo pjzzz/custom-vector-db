@@ -106,7 +106,13 @@ class SimilarityService:
             # Calculate distance based on the selected metric
             if self.distance_metric == self.COSINE:
                 # Cosine similarity (1 - cosine distance)
-                similarity = 1 - np.dot(query_vector, vector) / (np.linalg.norm(query_vector) * np.linalg.norm(vector))
+                query_norm = np.linalg.norm(query_vector)
+                vector_norm = np.linalg.norm(vector)
+                # Avoid division by zero
+                if query_norm > 0 and vector_norm > 0:
+                    similarity = 1 - np.dot(query_vector, vector) / (query_norm * vector_norm)
+                else:
+                    similarity = 0.0  # Default to zero similarity for zero vectors
             elif self.distance_metric == self.EUCLIDEAN:
                 # Convert Euclidean distance to similarity score (1 / (1 + distance))
                 similarity = 1 / (1 + np.linalg.norm(query_vector - vector))

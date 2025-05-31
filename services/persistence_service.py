@@ -45,7 +45,8 @@ class PersistenceService:
     def __init__(self,
                  data_dir: str = "./data",
                  snapshot_interval: int = 300,  # 5 minutes
-                 enable_auto_persist: bool = True):
+                 enable_auto_persist: bool = True,
+                 test_mode: bool = False):
         """
         Initialize the persistence service.
 
@@ -53,10 +54,12 @@ class PersistenceService:
             data_dir: Directory to store persistence files
             snapshot_interval: Seconds between automatic snapshots
             enable_auto_persist: Whether to enable automatic persistence
+            test_mode: If True, disables background tasks for testing
         """
         self.data_dir = data_dir
         self.snapshot_interval = snapshot_interval
         self.enable_auto_persist = enable_auto_persist
+        self.test_mode = test_mode
         self._persistence_lock = asyncio.Lock()
         self._last_snapshot_time = 0
         self._background_task = None
@@ -67,8 +70,13 @@ class PersistenceService:
         os.makedirs(os.path.join(data_dir, "vectors"), exist_ok=True)
         os.makedirs(os.path.join(data_dir, "indexers"), exist_ok=True)
 
-        if enable_auto_persist:
-            self._start_background_persistence()
+        if enable_auto_persist and not test_mode:
+            try:
+                self._start_background_persistence()
+            except RuntimeError as e:
+                # If no event loop is running, log a warning but don't fail
+                # This allows tests to create the service without an event loop
+                logger.warning(f"Could not start background persistence: {str(e)}")
 
     def _start_background_persistence(self):
         """Start background persistence task."""
@@ -89,9 +97,15 @@ class PersistenceService:
                     # Wait a bit before retrying
                     await asyncio.sleep(10)
 
-        # Start the background task
-        self._background_task = asyncio.create_task(persistence_task())
-        logger.info(f"Started background persistence task with interval {self.snapshot_interval}s")
+        # Get the current event loop or create one if needed
+        try:
+            asyncio.get_running_loop()  # Check if there's a running loop
+            # Start the background task
+            self._background_task = asyncio.create_task(persistence_task())
+            logger.info(f"Started background persistence task with interval {self.snapshot_interval}s")
+        except RuntimeError:
+            logger.warning("No running event loop found for background persistence task")
+            # Don't start the task - this is likely a test environment
 
     async def create_snapshot(self, content_service=None):
         """
