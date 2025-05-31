@@ -1,24 +1,15 @@
 import pytest
-from unittest.mock import MagicMock
 from models import Chunk, Document, Library
 from services.content_service import ContentService
-from services.vector_service import VectorService
+
+
+# Mock vector service fixture removed as it's no longer needed
 
 
 @pytest.fixture
-def mock_vector_service():
-    """Mock VectorService for testing."""
-    mock = MagicMock()
-    mock.upsert.return_value = {"status": "success"}
-    mock.delete.return_value = {"status": "success"}
-    mock.get_embedding.return_value = [0.1] * 1536  # Mock embedding
-    return mock
-
-
-@pytest.fixture
-def content_service(mock_vector_service):
-    """ContentService instance with mocked VectorService."""
-    return ContentService(vector_service=mock_vector_service, indexer_type='inverted', test_mode=True)
+def content_service():
+    """ContentService instance for testing."""
+    return ContentService(indexer_type='inverted', test_mode=True)
 
 
 @pytest.fixture

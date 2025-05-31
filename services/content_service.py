@@ -1,6 +1,5 @@
 from typing import List, Dict, Optional, Set, Union, Any
 from models import Chunk, Document, Library
-from services.vector_service import VectorService
 from services.similarity_service import SimilarityService
 from services.embedding_service import EmbeddingService
 from config import settings
@@ -17,24 +16,23 @@ logger = logging.getLogger(__name__)
 class ContentService:
     """Service class for managing libraries, documents, and chunks."""
 
-    def __init__(self, vector_service: Optional[VectorService] = None,
+    def __init__(self,
              indexer_type: str = 'inverted',
              embedding_dimension: int = 1536,
              data_dir: str = "./data",
              enable_persistence: bool = True,
              snapshot_interval: int = 300,
              test_mode: bool = False) -> None:
-        """Initialize with vector service.
+        """Initialize content service.
 
         Args:
-            vector_service: Vector service instance (optional)
             indexer_type: Type of indexer to use ('inverted', 'trie', or 'suffix')
             embedding_dimension: Dimension of embedding vectors (default: 1536)
             data_dir: Directory to store persistence files
             enable_persistence: Whether to enable persistence to disk
             snapshot_interval: Seconds between automatic snapshots
+            test_mode: Whether to run in test mode (disables background tasks)
         """
-        self.vector_service = vector_service
         self.content_store = {}
         self.embedding_dimension = embedding_dimension
         self.indexer_type = indexer_type
