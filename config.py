@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     DEFAULT_TOP_K: int = 5
     MAX_TOP_K: int = 100
     BATCH_SIZE: int = 100
+    INDEXER_TYPE: str = "inverted"  # Default indexer type - can be 'inverted', 'trie', or 'suffix'
 
 
 settings = Settings()
