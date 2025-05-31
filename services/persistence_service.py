@@ -158,6 +158,11 @@ class PersistenceService:
                 os.symlink(os.path.abspath(snapshot_dir), latest_link)
 
                 logger.info(f"Created snapshot at {snapshot_dir}")
+                self._last_snapshot_time = time.time()
+                
+                # Clean up old snapshots after creating a new one
+                self.cleanup_old_snapshots()
+                
                 return snapshot_dir
             except Exception as e:
                 logger.error(f"Error creating snapshot: {str(e)}")
