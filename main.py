@@ -4,7 +4,6 @@ from fastapi import Depends
 from typing import List, Optional, Dict
 from pydantic import BaseModel
 from models import Chunk, Document, Library, SearchRequest, SearchResponse, UpsertRequest, DeleteRequest, TextEmbeddingRequest
-from services.vector_service import VectorService
 from services.embedding_service import EmbeddingService
 from services.content_service import ContentService
 from config import settings
