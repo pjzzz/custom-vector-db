@@ -23,6 +23,7 @@ import os
 import shutil
 import time
 import logging
+from datetime import datetime
 from typing import Dict, List, Optional
 
 import sys
@@ -58,27 +59,42 @@ async def create_sample_data(content_service: ContentService) -> Dict[str, str]:
     logger.info("Creating sample data...")
 
     # Create a library
-    library = Library(name="AI Research")
-    library_id = await content_service.create_library(library)
+    library = Library(
+        id=f"lib_{int(time.time())}",
+        name="AI Research",
+        description="Research on AI topics",
+        created_at=datetime.now()
+    )
+    await content_service.create_library(library)
+    library_id = library.id
 
     # Create a document
-    document = Document(name="AI Topics", library_id=library_id)
-    document_id = await content_service.create_document(document)
+    document = Document(
+        id=f"doc_{int(time.time())}",
+        library_id=library_id,
+        title="AI Topics",
+        created_at=datetime.now()
+    )
+    await content_service.create_document(document)
+    document_id = document.id
 
     # Create chunks
     chunk_ids = []
     for i, text in enumerate(SAMPLE_TEXTS):
         chunk = Chunk(
-            text=text,
+            id=f"chunk_{int(time.time())}_{i}",
             document_id=document_id,
+            text=text,
+            position=i,
+            created_at=datetime.now(),
             metadata={
                 "topic": "AI",
-                "subtopic": ["machine learning", "nlp", "computer vision", "reinforcement learning", "deep learning"][i],
-                "importance": i + 1
+                "subtopic": str(["machine learning", "nlp", "computer vision", "reinforcement learning", "deep learning"][i]),
+                "importance": str(i + 1)
             }
         )
-        chunk_id = await content_service.create_chunk(chunk)
-        chunk_ids.append(chunk_id)
+        await content_service.create_chunk(chunk)
+        chunk_ids.append(chunk.id)
 
     logger.info(f"Created 1 library, 1 document, and {len(chunk_ids)} chunks")
 
@@ -103,9 +119,9 @@ async def perform_searches(content_service: ContentService):
 
     # Text search
     logger.info("Performing text search for 'learning'...")
-    text_results = await content_service.text_search(
-        query_text="learning",
-        top_k=5
+    text_results = await content_service.search(
+        query="learning",
+        indexer_type="inverted"
     )
     logger.info(f"Text search returned {len(text_results)} results")
     for i, result in enumerate(text_results):
@@ -117,19 +133,19 @@ async def verify_data_integrity(content_service: ContentService, ids: Dict[str, 
     logger.info("Verifying data integrity...")
 
     # Check library
-    libraries = await content_service.list_libraries()
+    libraries = await content_service.get_libraries()
     if len(libraries) != 1 or libraries[0]['id'] != ids['library_id']:
         logger.error("Library data integrity check failed")
         return False
 
     # Check document
-    documents = await content_service.list_documents(ids['library_id'])
+    documents = await content_service.get_documents(ids['library_id'])
     if len(documents) != 1 or documents[0]['id'] != ids['document_id']:
         logger.error("Document data integrity check failed")
         return False
 
     # Check chunks
-    chunks = await content_service.list_chunks(ids['document_id'])
+    chunks = await content_service.get_chunks(ids['document_id'])
     if len(chunks) != len(ids['chunk_ids']):
         logger.error("Chunk data integrity check failed")
         return False
@@ -154,8 +170,9 @@ async def main():
     # Step 1: Create first ContentService instance with persistence
     logger.info("=== STEP 1: Creating first ContentService instance ===")
     first_service = ContentService(
-        persistence_enabled=True,
-        persistence_dir=PERSISTENCE_DIR
+        data_dir=PERSISTENCE_DIR,
+        enable_persistence=True,
+        snapshot_interval=60  # Shorter interval for demo purposes
     )
 
     # Step 2: Create sample data
@@ -175,9 +192,9 @@ async def main():
     time.sleep(2)
 
     # Step 6: Print summary of first service
-    libraries = await first_service.list_libraries()
-    documents = await first_service.list_documents(ids['library_id'])
-    chunks = await first_service.list_chunks(ids['document_id'])
+    libraries = await first_service.get_libraries()
+    documents = await first_service.get_documents(ids['library_id'])
+    chunks = await first_service.get_chunks(ids['document_id'])
     logger.info(f"First service has {len(libraries)} libraries, {len(documents)} documents, and {len(chunks)} chunks")
 
     # Step 7: Simulate shutdown by creating a new ContentService
@@ -188,8 +205,9 @@ async def main():
     # Step 8: Create a new ContentService instance
     logger.info("=== STEP 7: Creating new ContentService instance ===")
     new_service = ContentService(
-        persistence_enabled=True,
-        persistence_dir=PERSISTENCE_DIR
+        data_dir=PERSISTENCE_DIR,
+        enable_persistence=True,
+        snapshot_interval=60  # Shorter interval for demo purposes
     )
 
     # Step 9: Load data from disk
