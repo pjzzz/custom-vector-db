@@ -6,6 +6,7 @@ from models.chunk import Chunk
 
 logger = logging.getLogger(__name__)
 
+
 class SimilarityService:
     """
     A custom vector similarity search service that implements efficient
@@ -193,34 +194,6 @@ class SimilarityService:
 
         return {"status": "success", "deleted": deleted_count}
 
-    def _calculate_similarity(self, query_vector: np.ndarray,
-                             vector: np.ndarray) -> float:
-        """
-        Calculate similarity between two vectors based on the distance metric.
-
-        Args:
-            query_vector: The query vector
-            vector: The vector to compare with
-
-        Returns:
-            Similarity score (higher is better)
-        """
-        if self.distance_metric == self.COSINE:
-            # For normalized vectors, dot product is equivalent to cosine similarity
-            # Convert numpy.float64 to Python float for type compatibility
-            return float(np.dot(query_vector, vector))
-
-        elif self.distance_metric == self.EUCLIDEAN:
-            # Convert Euclidean distance to similarity score (higher is better)
-            distance = np.linalg.norm(query_vector - vector)
-            return float(1.0 / (1.0 + distance))  # Convert to similarity score
-
-        elif self.distance_metric == self.DOT:
-            return float(np.dot(query_vector, vector))
-
-        else:
-            raise ValueError(f"Unsupported distance metric: {self.distance_metric}")
-
     def _normalize_vector(self, vector: np.ndarray) -> np.ndarray:
         """
         Normalize a vector to unit length.
@@ -235,22 +208,6 @@ class SimilarityService:
         if norm > 0:
             return vector / norm
         return vector
-
-    def _matches_filter(self, metadata: Dict, filter_dict: Dict) -> bool:
-        """
-        Check if metadata matches the filter criteria.
-
-        Args:
-            metadata: The metadata to check
-            filter_dict: The filter criteria
-
-        Returns:
-            True if metadata matches the filter, False otherwise
-        """
-        for key, value in filter_dict.items():
-            if key not in metadata or metadata[key] != value:
-                return False
-        return True
 
     def get_stats(self) -> Dict:
         """
