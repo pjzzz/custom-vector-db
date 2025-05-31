@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict
 
+
 class UpsertRequest(BaseModel):
     """Request model for upserting vectors."""
 

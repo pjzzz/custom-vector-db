@@ -15,6 +15,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 class TestVectorSearch(unittest.TestCase):
     """Test the custom vector search implementation with thread safety."""
 
