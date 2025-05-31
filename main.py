@@ -23,9 +23,8 @@ app.add_middleware(
 )
 
 # Initialize services
-vector_service = VectorService()
 embedding_service = EmbeddingService(vector_size=settings.EMBEDDING_DIMENSION)
-content_service = ContentService(vector_service)
+content_service = ContentService(indexer_type=settings.INDEXER_TYPE)
 
 
 class TextEmbeddingResponse(BaseModel):
@@ -39,14 +38,16 @@ async def search(request: SearchRequest):
     Search for similar vectors using a text query.
     """
     try:
-        query_vector = embedding_service.get_embedding(request.query)
-        results = await vector_service.search(
-            query_vector=query_vector,
+        # Use content_service.vector_search instead of vector_service.search
+        results = await content_service.vector_search(
+            query_text=request.query,
             top_k=request.top_k,
-            filter=request.filter
+            metadata_filter=request.filter
         )
+        # Get the embedding for the response
+        query_vector = embedding_service.get_embedding(request.query)
         return SearchResponse(
-            matches=results['matches'],
+            matches=results,
             query_vector=query_vector,
             top_k=request.top_k
         )
@@ -61,11 +62,19 @@ async def upsert(request: UpsertRequest):
     Add or update a vector in the index.
     """
     try:
-        return await vector_service.upsert(
+        # Create a chunk with the vector data
+        chunk = Chunk(
             id=request.id,
-            vector=request.values,
+            document_id="direct_upsert",  # Default document for direct upserts
+            text=request.metadata.get("text", ""),
+            position=0,
+            created_at=datetime.now(),
             metadata=request.metadata
         )
+        # Store the chunk and its embedding
+        await content_service.create_chunk(chunk)
+        # Return success response
+        return {"status": "success", "id": request.id}
     except Exception as e:
         logger.error(f"Upsert failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -77,15 +86,21 @@ async def bulk_upsert(vectors: List[UpsertRequest]):
     Bulk upsert multiple vectors at once.
     """
     try:
-        pinecone_vectors = [
-            {
-                'id': vec.id,
-                'values': vec.values,
-                'metadata': vec.metadata
-            }
-            for vec in vectors
-        ]
-        return await vector_service.bulk_upsert(pinecone_vectors)
+        results = []
+        for vec in vectors:
+            # Create a chunk with the vector data
+            chunk = Chunk(
+                id=vec.id,
+                document_id="direct_upsert",  # Default document for direct upserts
+                text=vec.metadata.get("text", ""),
+                position=0,
+                created_at=datetime.now(),
+                metadata=vec.metadata
+            )
+            # Store the chunk and its embedding
+            await content_service.create_chunk(chunk)
+            results.append({"id": vec.id, "status": "success"})
+        return {"status": "success", "upserted_count": len(results), "vectors": results}
     except Exception as e:
         logger.error(f"Bulk upsert failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -97,7 +112,14 @@ async def delete(request: DeleteRequest):
     Delete vectors by their IDs.
     """
     try:
-        return await vector_service.delete(request.ids)
+        deleted_count = 0
+        for chunk_id in request.ids:
+            try:
+                await content_service.delete_chunk(chunk_id)
+                deleted_count += 1
+            except Exception as chunk_error:
+                logger.warning(f"Failed to delete chunk {chunk_id}: {str(chunk_error)}")
+        return {"status": "success", "deleted_count": deleted_count}
     except Exception as e:
         logger.error(f"Delete failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -109,7 +131,46 @@ async def get_stats():
     Get statistics about the index.
     """
     try:
-        return await vector_service.get_stats()
+        # Get statistics from embedding service
+        embedding_stats = {
+            "vector_size": embedding_service.vector_size,
+            "vocabulary_size": len(embedding_service.vocabulary) if hasattr(embedding_service, 'vocabulary') else 0,
+            "document_count": embedding_service.document_count,
+            "is_fitted": embedding_service.is_fitted
+        }
+        
+        # Get statistics from similarity service
+        similarity_stats = {
+            "vector_count": len(content_service.similarity_service.vectors),
+            "dimension": content_service.similarity_service.dimension,
+            "distance_metric": content_service.similarity_service.distance_metric
+        }
+        
+        # Get statistics from content service
+        libraries = await content_service.get_libraries()
+        library_count = len(libraries)
+        
+        document_count = 0
+        chunk_count = 0
+        for library in libraries:
+            documents = await content_service.get_documents(library['id'])
+            document_count += len(documents)
+            for document in documents:
+                chunks = await content_service.get_chunks(document['id'])
+                chunk_count += len(chunks)
+        
+        content_stats = {
+            "libraries": library_count,
+            "documents": document_count,
+            "chunks": chunk_count
+        }
+        
+        return {
+            "embedding_service": embedding_stats,
+            "similarity_service": similarity_stats,
+            "content_service": content_stats,
+            "indexer_type": content_service.indexer.__class__.__name__
+        }
     except Exception as e:
         logger.error(f"Get stats failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -150,13 +211,17 @@ async def health_check():
     Health check endpoint.
     """
     try:
-        # Check Pinecone connection
-        stats = vector_service.get_stats()
-
-        # Check OpenAI connection
+        # Check content service is accessible
+        await content_service.get_libraries()
+        
+        # Check embedding service
         embedding_service.get_embedding("test")
-
-        return {"status": "healthy", "stats": stats}
+        
+        # Get current timestamp
+        from datetime import datetime
+        timestamp = datetime.now().isoformat()
+        
+        return {"status": "healthy", "timestamp": timestamp}
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
