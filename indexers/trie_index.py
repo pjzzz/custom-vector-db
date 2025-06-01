@@ -1,9 +1,10 @@
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set, Tuple, Any
 from models.chunk import Chunk
 from collections import defaultdict
 import threading
 from copy import deepcopy
 import logging
+from .base_indexer import BaseIndexer
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,7 @@ class TrieNode:
         self.is_end_of_word = False
 
 
-class TrieIndex:
+class TrieIndex(BaseIndexer):
     """
     A Trie-based index that supports prefix matching.
 
@@ -123,16 +124,15 @@ class TrieIndex:
         for child in node.children.values():
             self._collect_results(child, results)
 
-    def remove_chunk(self, chunk_id: str) -> bool:
+    def remove_chunk(self, chunk_id: str) -> None:
         """
         Remove a chunk from the index with thread safety.
-        Returns True if the chunk was found and removed, False otherwise.
         """
         # Check if the chunk exists and get its text for processing
         chunk_text = None
         with self._chunk_lock:
             if chunk_id not in self.chunk_map:
-                return False
+                return  # Nothing to remove
 
             # Get the text before removing from map
             chunk_text = self.chunk_map[chunk_id].text.lower()
@@ -146,8 +146,6 @@ class TrieIndex:
         with self._trie_lock:
             for word in words:
                 self._remove_word_chunk_reference(self.root, word, 0, chunk_id)
-
-        return True
 
     def _remove_word_chunk_reference(self, node: TrieNode, word: str, index: int, chunk_id: str) -> bool:
         """
@@ -189,3 +187,61 @@ class TrieIndex:
 
         # Return True if this node has no documents and no children
         return not node.documents and not node.children
+        
+    def get_serializable_data(self) -> Dict[str, Any]:
+        """Get serializable data for persistence.
+        Thread-safe implementation.
+
+        Returns:
+            Dict containing serializable data
+        """
+        with self._trie_lock, self._chunk_lock:
+            # Convert chunk objects to dictionaries
+            chunk_dict = {}
+            for chunk_id, chunk in self.chunk_map.items():
+                chunk_dict[chunk_id] = chunk.model_dump()
+
+            # Serialize the trie structure
+            # This is a simplified approach - for a real implementation,
+            # you might want a more efficient serialization of the trie
+            def serialize_node(node):
+                return {
+                    "documents": {doc_id: positions.copy() for doc_id, positions in node.documents.items()},
+                    "is_end_of_word": node.is_end_of_word,
+                    "children": {char: serialize_node(child) for char, child in node.children.items()}
+                }
+
+            return {
+                "root": serialize_node(self.root),
+                "chunk_map": chunk_dict
+            }
+
+    def load_serializable_data(self, data: Dict[str, Any]) -> None:
+        """Load serializable data from persistence.
+        Thread-safe implementation.
+
+        Args:
+            data: Dict containing serializable data
+        """
+        from models import Chunk  # Import here to avoid circular imports
+
+        with self._trie_lock, self._chunk_lock:
+            # Deserialize the trie structure
+            def deserialize_node(node_data):
+                node = TrieNode()
+                node.documents = defaultdict(list)
+                for doc_id, positions in node_data["documents"].items():
+                    node.documents[doc_id] = positions.copy()
+                node.is_end_of_word = node_data["is_end_of_word"]
+                node.children = {char: deserialize_node(child_data) 
+                                for char, child_data in node_data["children"].items()}
+                return node
+
+            self.root = deserialize_node(data["root"])
+
+            # Convert dictionaries back to Chunk objects
+            self.chunk_map = {}
+            for chunk_id, chunk_data in data["chunk_map"].items():
+                self.chunk_map[chunk_id] = Chunk(**chunk_data)
+
+            logger.info(f"Loaded trie index with {len(self.chunk_map)} chunks")

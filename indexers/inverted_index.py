@@ -5,11 +5,12 @@ from collections import defaultdict
 import threading
 from copy import deepcopy
 import logging
+from .base_indexer import BaseIndexer
 
 logger = logging.getLogger(__name__)
 
 
-class InvertedIndex:
+class InvertedIndex(BaseIndexer):
     """
     A simple inverted index that maps words to their locations in documents.
 
@@ -139,16 +140,13 @@ class InvertedIndex:
                 if chunk_id in self.chunk_map:
                     chunk_results.add((doc_id, chunk_id, 0))  # Position 0 as placeholder
 
-    def remove_chunk(self, chunk_id: str) -> bool:
+    def remove_chunk(self, chunk_id: str) -> None:
         """
         Remove a chunk from the index.
         Thread-safe implementation.
 
         Args:
             chunk_id: ID of the chunk to remove
-
-        Returns:
-            True if the chunk was removed, False otherwise
         """
         # First get the chunk and its document ID before removing it
         chunk_to_remove = None
@@ -156,7 +154,7 @@ class InvertedIndex:
         
         with self._chunk_lock:
             if chunk_id not in self.chunk_map:
-                return False
+                return  # Nothing to remove
                 
             # Get the chunk and its document ID before removing it
             chunk_to_remove = self.chunk_map[chunk_id]
@@ -168,7 +166,7 @@ class InvertedIndex:
         # If we couldn't get the chunk or document ID, we can't proceed efficiently
         if not chunk_to_remove or not doc_id:
             logger.warning(f"Could not get chunk data for chunk_id {chunk_id}")
-            return False
+            return
             
         # Tokenize the chunk to get the terms we need to update
         terms_to_update = set(self.tokenize(chunk_to_remove.text))
@@ -196,7 +194,7 @@ class InvertedIndex:
                 if term in self.index and not self.index[term]:
                     del self.index[term]
 
-        return True
+        return
 
     def get_serializable_data(self):
         """Get serializable data for persistence.

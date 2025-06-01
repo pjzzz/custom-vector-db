@@ -4,7 +4,8 @@ from services.similarity_service import SimilarityService
 from services.embedding_service import EmbeddingService
 from services.cohere_embedding_service import CohereEmbeddingService
 from config import settings
-from indexers import INDEXERS
+from indexers import INDEXERS  # Keep for backward compatibility
+from indexers.indexer_factory import IndexerFactory
 import logging
 import json
 import asyncio
@@ -68,10 +69,11 @@ class ContentService:
         self.similarity_service = SimilarityService(distance_metric=SimilarityService.COSINE)
         logger.info("Using custom vector search implementation")
 
-        # Initialize the selected indexer
-        if indexer_type not in INDEXERS:
-            raise ValueError(f"Invalid indexer type: {indexer_type}. Must be one of: {list(INDEXERS.keys())}")
-        self.indexer = INDEXERS[indexer_type]()  # In-memory storage with persistence
+        # Initialize the selected indexer using the factory pattern
+        try:
+            self.indexer = IndexerFactory.create(indexer_type)
+        except ValueError as e:
+            raise ValueError(f"Invalid indexer type: {indexer_type}. Must be one of: {IndexerFactory.get_available_types()}")
 
         # Initialize locks for concurrency control
         self._library_lock = asyncio.Lock()
@@ -691,13 +693,19 @@ class ContentService:
         """
         try:
             # Use provided indexer type if specified, otherwise use default
-            if indexer_type and indexer_type in INDEXERS:
-                indexer = INDEXERS[indexer_type]()
-                # Add existing chunks to the indexer
-                async with self._chunk_write_lock():
-                    chunks = self.content_store.get('chunks', {})
-                    for chunk in chunks.values():
-                        indexer.add_chunk(chunk)
+            if indexer_type:
+                try:
+                    # Create a new indexer instance using the factory
+                    indexer = IndexerFactory.create(indexer_type)
+                    # Add existing chunks to the indexer
+                    async with self._chunk_write_lock():
+                        chunks = self.content_store.get('chunks', {})
+                        for chunk in chunks.values():
+                            indexer.add_chunk(chunk)
+                except ValueError:
+                    # If invalid indexer type, fall back to default
+                    logger.warning(f"Invalid indexer type: {indexer_type}. Using default indexer.")
+                    indexer = self.indexer
             else:
                 indexer = self.indexer
 

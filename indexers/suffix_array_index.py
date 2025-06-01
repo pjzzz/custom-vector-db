@@ -3,11 +3,12 @@ from models.chunk import Chunk
 import bisect
 import threading
 import logging
+from .base_indexer import BaseIndexer
 
 logger = logging.getLogger(__name__)
 
 
-class SuffixArrayIndex:
+class SuffixArrayIndex(BaseIndexer):
     """
     A suffix array index that supports substring matching.
 
@@ -75,29 +76,24 @@ class SuffixArrayIndex:
 
         return results
 
-    def remove_chunk(self, chunk_id: str) -> bool:
+    def remove_chunk(self, chunk_id: str) -> None:
         """
         Remove a chunk from the index.
         Thread-safe implementation.
 
         Args:
             chunk_id: ID of the chunk to remove
-
-        Returns:
-            True if the chunk was removed, False otherwise
         """
         # First remove the chunk from the chunk map
         with self._chunk_lock:
             if chunk_id not in self.chunk_map:
-                return False
+                return  # Nothing to remove
             del self.chunk_map[chunk_id]
 
         # Then remove all suffixes for this chunk from the suffix array
         with self._suffix_lock:
             # Filter out suffixes for this chunk
             self.suffix_array = [s for s in self.suffix_array if s[3] != chunk_id]
-
-        return True
 
     def get_serializable_data(self) -> Dict[str, Any]:
         """Get serializable data for persistence.
