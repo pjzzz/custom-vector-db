@@ -1,4 +1,5 @@
 from typing import Dict, Type, Optional
+from .base_indexer import BaseIndexer
 from .inverted_index import InvertedIndex
 from .trie_index import TrieIndex
 from .suffix_array_index import SuffixArrayIndex
@@ -17,7 +18,7 @@ class IndexerFactory:
     """
     
     # Registry of available indexer types
-    _indexers: Dict[str, Type] = {
+    _indexers: Dict[str, Type[BaseIndexer]] = {
         'inverted': InvertedIndex,
         'trie': TrieIndex,
         'suffix': SuffixArrayIndex
@@ -55,7 +56,7 @@ class IndexerFactory:
     }
     
     @classmethod
-    def create(cls, indexer_type: str = 'inverted'):
+    def create(cls, indexer_type: str = 'inverted') -> BaseIndexer:
         """
         Create an indexer instance based on the specified type.
         
@@ -79,7 +80,7 @@ class IndexerFactory:
         return indexer_class()
     
     @classmethod
-    def register(cls, name: str, indexer_class: Type, description: Optional[str] = None):
+    def register(cls, name: str, indexer_class: Type[BaseIndexer], description: Optional[str] = None):
         """
         Register a new indexer type.
         
