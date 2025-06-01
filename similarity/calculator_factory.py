@@ -1,10 +1,8 @@
 from typing import Dict, Type, Optional, Any
 from .base_calculator import BaseSimilarityCalculator
-from .calculators import (
-    CosineSimilarityCalculator,
-    EuclideanSimilarityCalculator,
-    DotProductSimilarityCalculator
-)
+from .cosine_calculator import CosineSimilarityCalculator
+from .euclidean_calculator import EuclideanSimilarityCalculator
+from .dot_product_calculator import DotProductSimilarityCalculator
 import logging
 
 logger = logging.getLogger(__name__)

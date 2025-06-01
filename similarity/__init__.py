@@ -1,9 +1,7 @@
 from .base_calculator import BaseSimilarityCalculator
-from .calculators import (
-    CosineSimilarityCalculator,
-    EuclideanSimilarityCalculator,
-    DotProductSimilarityCalculator
-)
+from .cosine_calculator import CosineSimilarityCalculator
+from .euclidean_calculator import EuclideanSimilarityCalculator
+from .dot_product_calculator import DotProductSimilarityCalculator
 from .calculator_factory import SimilarityCalculatorFactory
 
 # For backward compatibility and convenience
