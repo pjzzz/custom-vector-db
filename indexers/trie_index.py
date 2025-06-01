@@ -36,8 +36,8 @@ class TrieIndex(BaseIndexer):
         self._trie_lock = threading.RLock()  # Reentrant lock for trie operations
         self._chunk_lock = threading.RLock()  # Reentrant lock for chunk map operations
 
-    def add_chunk(self, chunk: Chunk):
-        """Add a chunk to the index with thread safety."""
+    def add_chunk(self, chunk: Chunk) -> None:
+        """Add a chunk to the index."""
         # Store chunk in map with lock protection
         with self._chunk_lock:
             self.chunk_map[chunk.id] = chunk
@@ -64,7 +64,6 @@ class TrieIndex(BaseIndexer):
         """
         Search for chunks containing words starting with the given prefix.
         Returns list of (document_id, chunk_id, position) tuples.
-        Thread-safe implementation.
         """
         prefix = prefix.lower()
 
@@ -87,7 +86,7 @@ class TrieIndex(BaseIndexer):
         return results
 
     def _create_node_snapshot(self, node: TrieNode) -> Dict:
-        """Create a snapshot of a node and its relevant data for thread safety."""
+        """Create a snapshot of a node and its relevant data."""
         snapshot = {
             'documents': {},
             'children': {}
@@ -116,7 +115,6 @@ class TrieIndex(BaseIndexer):
 
     def _collect_results(self, node: TrieNode, results: List[Tuple[str, str, int]]):
         """Helper method to collect all documents from a node and its children.
-        Note: This method is not thread-safe and should only be used within a lock.
         """
         for doc_id, positions in node.documents.items():
             results.extend([(doc_id, chunk_id, pos) for chunk_id, pos in positions])
@@ -126,7 +124,7 @@ class TrieIndex(BaseIndexer):
 
     def remove_chunk(self, chunk_id: str) -> None:
         """
-        Remove a chunk from the index with thread safety.
+        Remove a chunk from the index.
         """
         # Check if the chunk exists and get its text for processing
         chunk_text = None
@@ -190,7 +188,6 @@ class TrieIndex(BaseIndexer):
         
     def get_serializable_data(self) -> Dict[str, Any]:
         """Get serializable data for persistence.
-        Thread-safe implementation.
 
         Returns:
             Dict containing serializable data
@@ -218,7 +215,6 @@ class TrieIndex(BaseIndexer):
 
     def load_serializable_data(self, data: Dict[str, Any]) -> None:
         """Load serializable data from persistence.
-        Thread-safe implementation.
 
         Args:
             data: Dict containing serializable data

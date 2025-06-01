@@ -34,8 +34,8 @@ class InvertedIndex(BaseIndexer):
         """Simple tokenization - split on whitespace and remove punctuation."""
         return re.findall(r'\w+', text.lower())
 
-    def add_chunk(self, chunk: Chunk):
-        """Add a chunk to the index with thread safety."""
+    def add_chunk(self, chunk: Chunk) -> None:
+        """Add a chunk to the index."""
         # Store chunk in map with lock protection
         with self._chunk_lock:
             self.chunk_map[chunk.id] = chunk
@@ -62,7 +62,6 @@ class InvertedIndex(BaseIndexer):
         """
         Search for chunks containing all query terms.
         Returns list of (document_id, chunk_id, position) tuples.
-        Thread-safe implementation.
         """
         tokens = self.tokenize(query)
         if not tokens:
@@ -80,7 +79,7 @@ class InvertedIndex(BaseIndexer):
         return list(chunk_results)
 
     def _get_index_snapshot(self, tokens: List[str]) -> Dict:
-        """Create a thread-safe snapshot of the index for the given tokens."""
+        """Create a snapshot of the index for the given tokens."""
         with self._index_lock:
             # Check if all tokens exist in the index
             for token in tokens:
@@ -143,7 +142,6 @@ class InvertedIndex(BaseIndexer):
     def remove_chunk(self, chunk_id: str) -> None:
         """
         Remove a chunk from the index.
-        Thread-safe implementation.
 
         Args:
             chunk_id: ID of the chunk to remove
@@ -196,9 +194,8 @@ class InvertedIndex(BaseIndexer):
 
         return
 
-    def get_serializable_data(self):
+    def get_serializable_data(self) -> Dict[str, Any]:
         """Get serializable data for persistence.
-        Thread-safe implementation.
 
         Returns:
             Dict containing serializable data
@@ -221,9 +218,8 @@ class InvertedIndex(BaseIndexer):
                 "chunk_map": chunk_dict
             }
 
-    def load_serializable_data(self, data):
+    def load_serializable_data(self, data: Dict[str, Any]) -> None:
         """Load serializable data from persistence.
-        Thread-safe implementation.
 
         Args:
             data: Dict containing serializable data

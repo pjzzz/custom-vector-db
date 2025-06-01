@@ -29,7 +29,7 @@ class SuffixArrayIndex(BaseIndexer):
         self._chunk_lock = threading.RLock()   # Reentrant lock for chunk map operations
 
     def add_chunk(self, chunk: Chunk) -> None:
-        """Add a chunk to the index with thread safety."""
+        """Add a chunk to the index."""
         # Use locks to ensure thread safety
         with self._chunk_lock:
             self.chunk_map[chunk.id] = chunk
@@ -51,7 +51,6 @@ class SuffixArrayIndex(BaseIndexer):
         """
         Search for chunks containing the query as a substring.
         Returns list of (document_id, chunk_id, position) tuples.
-        Thread-safe implementation.
         """
         query = query.lower()
         n = len(query)
@@ -79,7 +78,6 @@ class SuffixArrayIndex(BaseIndexer):
     def remove_chunk(self, chunk_id: str) -> None:
         """
         Remove a chunk from the index.
-        Thread-safe implementation.
 
         Args:
             chunk_id: ID of the chunk to remove
@@ -97,7 +95,6 @@ class SuffixArrayIndex(BaseIndexer):
 
     def get_serializable_data(self) -> Dict[str, Any]:
         """Get serializable data for persistence.
-        Thread-safe implementation.
 
         Returns:
             Dict containing serializable data
@@ -115,7 +112,6 @@ class SuffixArrayIndex(BaseIndexer):
 
     def load_serializable_data(self, data: Dict[str, Any]) -> None:
         """Load serializable data from persistence.
-        Thread-safe implementation.
 
         Args:
             data: Dict containing serializable data

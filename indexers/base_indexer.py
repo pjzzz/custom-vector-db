@@ -62,7 +62,6 @@ class BaseIndexer(ABC):
     def get_serializable_data(self) -> Dict[str, Any]:
         """
         Get serializable data for persistence.
-        Thread-safe implementation.
 
         Returns:
             Dict containing serializable data
@@ -73,7 +72,6 @@ class BaseIndexer(ABC):
     def load_serializable_data(self, data: Dict[str, Any]) -> None:
         """
         Load serializable data from persistence.
-        Thread-safe implementation.
 
         Args:
             data: Dict containing serializable data
