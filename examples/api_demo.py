@@ -152,6 +152,8 @@ def get_stats():
 
 def run_demo():
     """Run the complete API demo"""
+    # Get initial statistics
+    get_stats()
     # Sample texts for the demo - more diverse content for better differentiation
     texts = [
         # Technology category
@@ -248,6 +250,9 @@ def run_demo():
 
         # Verify deletion with search
         vector_search("vector search")
+
+    # Get final statistics
+    get_stats()
 
     print("\n\nDemo completed successfully!")
 

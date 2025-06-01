@@ -43,6 +43,16 @@ class EmbeddingService:
 
         logger.info(f"EmbeddingService initialized with vector_size={vector_size}")
 
+    @property
+    def document_count(self):
+        """Property that returns the document count for compatibility."""
+        return self.doc_count
+
+    @property
+    def is_fitted(self):
+        """Property that returns whether the model is fitted."""
+        return self.projection_matrix is not None
+
     def fit(self, texts: List[str]):
         """
         Fit the embedding model on a corpus of texts.
