@@ -103,22 +103,28 @@ class SimilarityService:
         # Calculate distances
         results = []
         for id, vector in vectors_snapshot.items():
-            # Calculate distance based on the selected metric
+            # Calculate similarity based on the selected metric
             if self.distance_metric == self.COSINE:
-                # Cosine similarity (1 - cosine distance)
+                # Cosine similarity (convert from distance to similarity)
                 query_norm = np.linalg.norm(query_vector)
                 vector_norm = np.linalg.norm(vector)
                 # Avoid division by zero
                 if query_norm > 0 and vector_norm > 0:
-                    similarity = 1 - np.dot(query_vector, vector) / (query_norm * vector_norm)
+                    # Calculate cosine similarity directly (not distance)
+                    # Higher value means more similar (range 0 to 1)
+                    similarity = np.dot(query_vector, vector) / (query_norm * vector_norm)
                 else:
                     similarity = 0.0  # Default to zero similarity for zero vectors
             elif self.distance_metric == self.EUCLIDEAN:
                 # Convert Euclidean distance to similarity score (1 / (1 + distance))
+                # Higher value means more similar (range 0 to 1)
                 similarity = 1 / (1 + np.linalg.norm(query_vector - vector))
             elif self.distance_metric == self.DOT:
-                # Dot product
-                similarity = np.dot(query_vector, vector)
+                # Normalize dot product to a 0-1 range for consistency
+                # This assumes vectors are normalized or similar in magnitude
+                dot_product = np.dot(query_vector, vector)
+                # Scale to positive values if needed
+                similarity = max(0, dot_product)
             else:
                 raise ValueError(f"Unknown distance metric: {self.distance_metric}")
 
@@ -129,6 +135,7 @@ class SimilarityService:
             })
 
         # Sort by score (descending) and take top_k
+        # Higher scores are better for all metrics now
         results.sort(key=lambda x: x["score"], reverse=True)
         return results[:top_k]
 

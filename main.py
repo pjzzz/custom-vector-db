@@ -56,6 +56,42 @@ async def search(request: SearchRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/search/text")
+async def search_text(query: str, indexer_type: str = "inverted"):
+    """
+    Search for text using the specified indexer.
+    """
+    try:
+        results = await content_service.search(query, indexer_type)
+        
+        # Add a score field to each result for consistency with vector search
+        for result in results:
+            # Add a score of 1.0 for exact matches
+            result["score"] = 1.0
+            
+        return results
+    except Exception as e:
+        logger.error(f"Text search failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/search/vector")
+async def vector_search(query_text: str, top_k: int = 5, filter_metadata: Optional[Dict] = None):
+    """
+    Search for vectors using semantic similarity.
+    """
+    try:
+        results = await content_service.vector_search(
+            query_text=query_text,
+            top_k=top_k,
+            filter_dict=filter_metadata
+        )
+        return results
+    except Exception as e:
+        logger.error(f"Vector search failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/upsert")
 async def upsert(request: UpsertRequest):
     """
