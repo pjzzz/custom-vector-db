@@ -152,17 +152,39 @@ def get_stats():
 
 def run_demo():
     """Run the complete API demo"""
-    # Sample texts for the demo
+    # Sample texts for the demo - more diverse content for better differentiation
     texts = [
+        # Technology category
         "Vector search is a technique used to find similar items in a dataset "
-        "based on their vector representations.",
-        "Embeddings are numerical representations of data that capture semantic meaning.",
+        "based on their vector representations. It enables semantic search capabilities.",
+        "Embeddings are numerical representations of data that capture semantic meaning "
+        "and allow machines to understand relationships between concepts.",
         "Thread safety ensures that concurrent operations don't lead to race "
-        "conditions or data corruption.",
-        "Cosine similarity measures the cosine of the angle between two vectors, "
-        "indicating their similarity.",
-        "Dimensionality reduction techniques like random projection help manage "
-        "high-dimensional data efficiently."
+        "conditions or data corruption in multi-threaded environments.",
+        
+        # Machine Learning category
+        "Neural networks consist of layers of interconnected nodes that process "
+        "and transform data to learn complex patterns and make predictions.",
+        "Supervised learning algorithms learn from labeled training data to make "
+        "predictions or decisions without being explicitly programmed to do so.",
+        "Gradient descent is an optimization algorithm used to minimize the loss "
+        "function by iteratively moving toward the steepest descent.",
+        
+        # Biology category
+        "DNA, or deoxyribonucleic acid, is a molecule composed of two polynucleotide "
+        "chains that coil around each other to form a double helix.",
+        "Photosynthesis is the process by which green plants and some other organisms "
+        "use sunlight to synthesize nutrients from carbon dioxide and water.",
+        "Cellular respiration is a set of metabolic reactions that take place in cells "
+        "to convert biochemical energy from nutrients into ATP.",
+        
+        # History category
+        "The Renaissance was a period in European history marking the transition "
+        "from the Middle Ages to modernity and covering the 15th and 16th centuries.",
+        "The Industrial Revolution was the transition to new manufacturing processes "
+        "in Great Britain, continental Europe, and the United States.",
+        "World War II was a global war that lasted from 1939 to 1945, involving "
+        "the vast majority of the world's countries forming opposing alliances."
     ]
 
     # Create library and document
@@ -197,11 +219,25 @@ def run_demo():
     # Vector search examples
     print("\n\n=== VECTOR SEARCH EXAMPLES ===\n")
 
-    # Basic vector search
-    vector_search("What is vector search?")
-
-    # Vector search with higher top_k
-    vector_search("similarity between vectors", top_k=3)
+    # Technology category search
+    print("\n--- Technology Category Search ---")
+    vector_search("How does vector search work for finding similar items?")
+    
+    # Machine Learning category search
+    print("\n--- Machine Learning Category Search ---")
+    vector_search("Explain how neural networks process data", top_k=3)
+    
+    # Biology category search
+    print("\n--- Biology Category Search ---")
+    vector_search("Tell me about DNA structure and function", top_k=3)
+    
+    # History category search
+    print("\n--- History Category Search ---")
+    vector_search("What were the major events of World War II?", top_k=3)
+    
+    # Cross-category search
+    print("\n--- Cross-Category Search ---")
+    vector_search("How do algorithms process information?", top_k=5)
 
     # Delete operations
     print("\n\n=== DELETE OPERATIONS ===\n")
