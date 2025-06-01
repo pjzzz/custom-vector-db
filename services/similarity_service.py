@@ -1,7 +1,8 @@
 import numpy as np
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 import threading
 import logging
+from similarity import SimilarityCalculatorFactory, BaseSimilarityCalculator
 
 logger = logging.getLogger(__name__)
 
@@ -24,16 +25,23 @@ class SimilarityService:
     EUCLIDEAN = "euclidean"
     DOT = "dot"
 
-    def __init__(self, distance_metric: str = COSINE):
+    def __init__(self, distance_metric: str = COSINE, **calculator_kwargs):
         """
         Initialize the similarity service with the specified distance metric.
 
         Args:
             distance_metric: The distance metric to use (cosine, euclidean, dot)
+            **calculator_kwargs: Additional parameters to pass to the calculator constructor
         """
         self.vectors: Dict[str, np.ndarray] = {}
         self.metadata: Dict[str, Dict] = {}
         self.distance_metric = distance_metric
+
+        # Create the appropriate similarity calculator using the factory
+        self.calculator = SimilarityCalculatorFactory.create(
+            calculator_type=distance_metric, 
+            **calculator_kwargs
+        )
 
         # Add thread safety with locks
         self._vector_lock = threading.RLock()  # Reentrant lock for vector operations
@@ -56,9 +64,8 @@ class SimilarityService:
         # Convert to numpy array for efficient operations
         vector_array = np.array(vector, dtype=np.float32)
 
-        # Normalize the vector if using cosine similarity
-        if self.distance_metric == self.COSINE:
-            vector_array = self._normalize_vector(vector_array)
+        # Preprocess the vector using the calculator
+        vector_array = self.calculator.preprocess_vector(vector_array)
 
         # Store with lock protection
         with self._vector_lock:
@@ -100,33 +107,11 @@ class SimilarityService:
             # Only keep vectors that match the filter
             vectors_snapshot = {id: vectors_snapshot[id] for id in filtered_ids if id in vectors_snapshot}
 
-        # Calculate distances
+        # Calculate similarities using the calculator
         results = []
         for id, vector in vectors_snapshot.items():
-            # Calculate similarity based on the selected metric
-            if self.distance_metric == self.COSINE:
-                # Cosine similarity (convert from distance to similarity)
-                query_norm = np.linalg.norm(query_vector)
-                vector_norm = np.linalg.norm(vector)
-                # Avoid division by zero
-                if query_norm > 0 and vector_norm > 0:
-                    # Calculate cosine similarity directly (not distance)
-                    # Higher value means more similar (range 0 to 1)
-                    similarity = np.dot(query_vector, vector) / (query_norm * vector_norm)
-                else:
-                    similarity = 0.0  # Default to zero similarity for zero vectors
-            elif self.distance_metric == self.EUCLIDEAN:
-                # Convert Euclidean distance to similarity score (1 / (1 + distance))
-                # Higher value means more similar (range 0 to 1)
-                similarity = 1 / (1 + np.linalg.norm(query_vector - vector))
-            elif self.distance_metric == self.DOT:
-                # Normalize dot product to a 0-1 range for consistency
-                # This assumes vectors are normalized or similar in magnitude
-                dot_product = np.dot(query_vector, vector)
-                # Scale to positive values if needed
-                similarity = max(0, dot_product)
-            else:
-                raise ValueError(f"Unknown distance metric: {self.distance_metric}")
+            # Use the calculator to compute similarity
+            similarity = self.calculator.calculate_similarity(query_vector, vector)
 
             results.append({
                 "id": id,
@@ -139,10 +124,9 @@ class SimilarityService:
         results.sort(key=lambda x: x["score"], reverse=True)
         return results[:top_k]
 
-    def get_all_vectors(self):
+    def get_all_vectors(self) -> Dict[str, Any]:
         """
         Get all vectors and metadata for persistence.
-        Thread-safe implementation.
 
         Returns:
             Dict containing vectors and metadata
@@ -153,16 +137,21 @@ class SimilarityService:
             for id, vector in self.vectors.items():
                 vectors_data[id] = vector.tolist()
 
+            # Get calculator configuration for persistence
+            calculator_kwargs = {}
+            if hasattr(self.calculator, "normalize_output"):
+                calculator_kwargs["normalize_output"] = self.calculator.normalize_output
+
             return {
                 "vectors": vectors_data,
                 "metadata": self.metadata,
-                "distance_metric": self.distance_metric
+                "distance_metric": self.distance_metric,
+                "calculator_kwargs": calculator_kwargs
             }
 
-    def load_vectors(self, vectors_data):
+    def load_vectors(self, vectors_data: Dict[str, Any]) -> None:
         """
         Load vectors and metadata from persistence.
-        Thread-safe implementation.
 
         Args:
             vectors_data: Dict containing vectors and metadata
@@ -175,6 +164,13 @@ class SimilarityService:
 
             self.metadata = vectors_data["metadata"]
             self.distance_metric = vectors_data["distance_metric"]
+            
+            # Recreate the calculator with the loaded distance metric
+            calculator_kwargs = vectors_data.get("calculator_kwargs", {})
+            self.calculator = SimilarityCalculatorFactory.create(
+                calculator_type=self.distance_metric,
+                **calculator_kwargs
+            )
 
             logger.info(f"Loaded {len(self.vectors)} vectors with {self.distance_metric} distance metric")
 
@@ -200,25 +196,21 @@ class SimilarityService:
 
         return {"status": "success", "deleted": deleted_count}
 
-    def _normalize_vector(self, vector: np.ndarray) -> np.ndarray:
+    def _get_calculator_info(self) -> Dict[str, Any]:
         """
-        Normalize a vector to unit length.
-
-        Args:
-            vector: The vector to normalize
+        Get information about the current calculator.
 
         Returns:
-            Normalized vector
+            Dictionary with calculator information
         """
-        norm = np.linalg.norm(vector)
-        if norm > 0:
-            return vector / norm
-        return vector
+        return {
+            "type": self.distance_metric,
+            "config": self.calculator.get_config()
+        }
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> Dict[str, Any]:
         """
         Get statistics about the vectors stored in the service.
-        Thread-safe implementation.
 
         Returns:
             Dict with statistics
@@ -233,8 +225,13 @@ class SimilarityService:
                 first_id = next(iter(self.vectors))
                 dimension = len(self.vectors[first_id])
 
-        return {
+        stats = {
             "vector_count": vector_count,
             "dimension": dimension,
             "distance_metric": self.distance_metric
         }
+        
+        # Add calculator information
+        stats["calculator"] = self._get_calculator_info()
+        
+        return stats
