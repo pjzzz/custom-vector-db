@@ -2,6 +2,7 @@ from typing import List, Dict, Optional, Set, Union, Any
 from models import Chunk, Document, Library
 from services.similarity_service import SimilarityService
 from services.embedding_service import EmbeddingService
+from services.cohere_embedding_service import CohereEmbeddingService
 from config import settings
 from indexers import INDEXERS
 import logging
@@ -18,7 +19,10 @@ class ContentService:
 
     def __init__(self,
              indexer_type: str = 'inverted',
-             embedding_dimension: int = 1536,
+             embedding_provider: str = None,
+             embedding_dimension: int = None,
+             cohere_api_key: str = None,
+             cohere_model: str = None,
              data_dir: str = "./data",
              enable_persistence: bool = True,
              snapshot_interval: int = 300,
@@ -27,19 +31,38 @@ class ContentService:
 
         Args:
             indexer_type: Type of indexer to use ('inverted', 'trie', or 'suffix')
-            embedding_dimension: Dimension of embedding vectors (default: 1536)
+            embedding_provider: Provider for embeddings ('custom' or 'cohere')
+            embedding_dimension: Dimension of embedding vectors for custom provider
+            cohere_api_key: API key for Cohere embeddings
+            cohere_model: Model name for Cohere embeddings
             data_dir: Directory to store persistence files
             enable_persistence: Whether to enable persistence to disk
             snapshot_interval: Seconds between automatic snapshots
             test_mode: Whether to run in test mode (disables background tasks)
         """
         self.content_store = {}
-        self.embedding_dimension = embedding_dimension
-        self.indexer_type = indexer_type
+        
+        # Use settings if parameters not provided
+        self.embedding_provider = embedding_provider or settings.EMBEDDING_PROVIDER
+        self.embedding_dimension = embedding_dimension or settings.EMBEDDING_DIMENSION
+        self.indexer_type = indexer_type or settings.INDEXER_TYPE
+        cohere_api_key = cohere_api_key or settings.COHERE_API_KEY
+        cohere_model = cohere_model or settings.COHERE_MODEL
 
-        # Initialize embedding service
-        self.embedding_service = EmbeddingService(vector_size=embedding_dimension, min_word_freq=2)
-        logger.info("Using custom TF-IDF embeddings")
+        # Initialize embedding service based on provider
+        if self.embedding_provider == "cohere":
+            self.embedding_service = CohereEmbeddingService(
+                api_key=cohere_api_key,
+                model=cohere_model,
+                vector_size=settings.COHERE_DIMENSION
+            )
+            logger.info(f"Using Cohere embeddings with model: {cohere_model}")
+        else:  # default to custom
+            self.embedding_service = EmbeddingService(
+                vector_size=self.embedding_dimension, 
+                min_word_freq=2
+            )
+            logger.info("Using custom TF-IDF embeddings")
 
         # Initialize similarity service
         self.similarity_service = SimilarityService(distance_metric=SimilarityService.COSINE)
